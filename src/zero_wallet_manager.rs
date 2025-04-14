@@ -6,7 +6,7 @@ use crate::{
     zero_proof::ZeroProof,
     zero_wallet::{ZeroWallet, MAX_NFTS},
 };
-trait ZeroWalletManager {
+pub trait ZeroWalletManager {
     fn new() -> Self;
     fn add_proofs(&mut self, proofs: HashMap<String, ZeroProof>);
     fn add_proof(&mut self, proof: ZeroProof);
@@ -52,7 +52,7 @@ impl ZeroWalletManager for ZeroWallet {
                 signature: [0; 64],
             },
             proofs: HashMap::new(),
-            nfts: nfts,
+            nfts,
         }
     }
 
@@ -76,38 +76,24 @@ impl ZeroWalletManager for ZeroWallet {
         // Find the first empty slot and insert the NFT
         for slot in &mut self.nfts {
             if slot.is_none() {
-                *slot = Some(nft.unwrap());
+                *slot = Some(nft.expect("msg: NFT should not be None"));
                 return;
             }
         }
         // If we get here, the array is full and the NFT wasn't added
     }
 
-    fn remove_nft(&mut self, nft_id: &str) {
+    fn remove_nft(&mut self, _nft_id: &str) {
         // Find the NFT with the matching ID and remove it
-        for slot in &mut self.nfts {
-            if let Some(nft) = slot {
-                if nft.zero_id == ZeroId::from(nft_id) {
-                    *slot = None;
-                    return;
-                }
-            }
-        }
+        todo!()
     }
 
     fn get_proof(&self, proof_id: &str) -> Option<&ZeroProof> {
         self.proofs.get(proof_id)
     }
 
-    fn get_nft(&self, nft_id: &str) -> Option<&Nft> {
-        for slot in &self.nfts {
-            if let Some(nft) = slot {
-                if nft.zero_id == ZeroId::from(nft_id) {
-                    return Some(nft);
-                }
-            }
-        }
-        None
+    fn get_nft(&self, _nft_id: &str) -> Option<&Nft> {
+        todo!()
     }
 
     fn list_proofs(&self) -> Vec<&ZeroProof> {
@@ -183,16 +169,12 @@ impl ZeroWalletManager for ZeroWallet {
         proof.timestamp > 0
     }
 
-    fn is_valid_nft(&self, nft: &Option<Nft>) -> bool {
+    fn is_valid_nft(&self, nft: &Nft) -> bool {
         // Check if the NFT is valid
-        if let Some(nft) = nft {
-            // Check if the NFT has a valid ID and is not empty
-            !nft.zero_id.did_peer.iter().all(|&b| b == 0)
-                && !nft.zero_id.pubkey.iter().all(|&b| b == 0)
-                && !nft.zero_id.signature.iter().all(|&b| b == 0)
-        } else {
-            false
-        }
+        // Check if the NFT has a valid ID and is not empty
+        !nft.zero_id.did_peer.iter().all(|&b| b == 0)
+            && !nft.zero_id.pubkey.iter().all(|&b| b == 0)
+            && !nft.zero_id.signature.iter().all(|&b| b == 0)
     }
 
     fn is_valid_id(&self, id: &ZeroId) -> bool {
@@ -211,7 +193,9 @@ impl ZeroWalletManager for ZeroWallet {
 
     fn is_valid_nfts(&self, nfts: &[Option<Nft>; MAX_NFTS]) -> bool {
         // Check if all NFTs are valid
-        nfts.iter().all(|nft| self.is_valid_nft(nft))
+        nfts.iter()
+            .filter_map(|nft| nft.as_ref())
+            .all(|nft| self.is_valid_nft(nft))
     }
 
     fn is_valid_wallet(&self) -> bool {

@@ -1,7 +1,4 @@
-use std::cmp::Ordering;
-
 use serde::{Deserialize, Serialize};
-use ssi::crypto::k256::sha2::digest::typenum::Zero;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[repr(C)]
@@ -13,6 +10,12 @@ pub struct ZeroId {
     #[serde(with = "serde_arrays")]
     pub signature: [u8; 64],
 }
+impl Default for ZeroId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ZeroId {
     pub fn new() -> Self {
         ZeroId {
@@ -25,30 +28,27 @@ impl ZeroId {
 impl From<&str> for ZeroId {
     fn from(value: &str) -> Self {
         let bytes: &[u8] = value.as_bytes();
-        let did_peer = bytes[..512].try_into().expect(
-            format!(
+        let did_peer = bytes[..512].try_into().unwrap_or_else(|_| {
+            panic!(
                 "Slice with length {} does not fit into array of length {}",
                 bytes.len(),
                 512
             )
-            .as_str(),
-        );
-        let pubkey: [u8; 64] = bytes[512..576].try_into().expect(
-            format!(
+        });
+        let pubkey: [u8; 64] = bytes[512..576].try_into().unwrap_or_else(|_| {
+            panic!(
                 "Slice with length {} does not fit into array of length {}",
                 bytes.len(),
                 64
             )
-            .as_str(),
-        );
-        let signature: [u8; 64] = bytes[576..640].try_into().expect(
-            format!(
+        });
+        let signature: [u8; 64] = bytes[576..640].try_into().unwrap_or_else(|_| {
+            panic!(
                 "Slice with length {} does not fit into array of length {}",
                 bytes.len(),
                 64
             )
-            .as_str(),
-        );
+        });
         ZeroId {
             did_peer,
             pubkey,

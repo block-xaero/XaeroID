@@ -1,14 +1,15 @@
-use crate::zero_id::ZeroId;
 use serde::{Deserialize, Serialize};
 
+use crate::zero_id::ZeroId;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum ContentType {
-    DrippImage,
-    DrippVideo,
-    DrippAudio,
-    DrippDocument,
-    DrippPost,
-    DrippArt,
+pub enum ContentType {
+    Image,
+    Video,
+    Audio,
+    Doc,
+    Post,
+    Art,
 }
 
 #[repr(C)]

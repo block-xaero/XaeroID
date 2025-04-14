@@ -1,11 +1,11 @@
 [package]
 name = "zeroid"
 version = "0.1.0"
-edition = "2021"
-authors = ["anirudh.vyas@goldilocksfashion.com"]
+edition = "2024"
+authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
 description = "A cloudless, decentralized DID key generator and identity verification system using Rust."
 license = "MPL-2.0"
-repository = "https://github.com/goldilocksfashion/zeroid"
+repository = "https://github.com/block-xaero/zeroid"
 readme = "README.md"
 keywords = ["DID", "identity", "decentralized", "zero-knowledge", "privacy"]
 categories = ["cryptography", "authentication"]
@@ -13,13 +13,14 @@ exclude = [".github", "tests", "examples"]
 
 [lib]
 name = "zeroid"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["staticlib", "cdylib", "rlib"] 
 
 [dependencies]
 array-init = "2.1.0"
-risc0-zkvm = "2.0.0"
+risc0-zkvm = "2.0.1"
 bincode = "2.0.1" 
 serde = {version = "1.0.219" }
 serde_with = { version = "3.12.0" }
 serde_arrays = { version = "0.2.0" }
 ssi = { version = "0.10.2"}
+xaeroflux = { version = "0.1.0"}

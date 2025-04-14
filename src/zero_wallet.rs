@@ -7,8 +7,8 @@ pub const MAX_NFTS: usize = 10;
 /// The `ZeroWallet` struct is used to manage the user's digital assets and their associated proofs.
 /// The `id` field is a unique identifier for the wallet.
 /// The `proofs` field is a collection of proofs associated with the wallet.    
-/// The `nfts` field is an array of `LocalNft` objects, which represent the NFTs owned by the wallet.
-/// The `nfts` field is limited to a maximum of 10 NFTs.
+/// The `nfts` field is an array of `LocalNft` objects, which represent the NFTs owned by the
+/// wallet. The `nfts` field is limited to a maximum of 10 NFTs.
 #[derive(Debug)]
 #[repr(C)]
 #[derive(serde::Serialize, serde::Deserialize)]

@@ -8,20 +8,18 @@ license = "MPL-2.0"
 repository = "https://github.com/goldilocksfashion/zeroid"
 readme = "README.md"
 keywords = ["DID", "identity", "decentralized", "zero-knowledge", "privacy"]
-categories = ["cryptography", "authentication", "decentralization"]
+categories = ["cryptography", "authentication"]
 exclude = [".github", "tests", "examples"]
 
-[dependencies]
-tesseract = "0.15.1"         # OCR for license scanning
-barcoders = "2.0.0"          # PDF417 barcode decoder (for driver’s licenses)
-qrcode = "0.14.1"            # QR code generation for identity exchange
-ssi = "0.10.2"                # Self-Sovereign Identity (DID implementation)
-ed25519-dalek = "2.1.1"      # Cryptographic keypair generation
-rand = "0.9.0"               # Random number generation for key creation
-
 [lib]
-crate-type = ["cdylib", "rlib"] # Supports FFI for mobile integration
+name = "zeroid"
+crate-type = ["cdylib", "rlib"]
 
-[features]
-default = ["zero-knowledge"]
-zero-knowledge = []        # Optional feature for Zero-Knowledge Proofs (ZKPs)
+[dependencies]
+array-init = "2.1.0"
+risc0-zkvm = "2.0.0"
+bincode = "2.0.1" 
+serde = {version = "1.0.219" }
+serde_with = { version = "3.12.0" }
+serde_arrays = { version = "0.2.0" }
+ssi = { version = "0.10.2"}

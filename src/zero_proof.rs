@@ -1,8 +1,10 @@
-use risc0_zkvm::Receipt;
-use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[repr(C)]
+#[derive(Debug, Clone, Archive, Serialize, Deserialize)]
+#[rkyv(derive(Debug))]
 pub struct ZeroProof {
-    pub timestamp: u64,
-    pub proof: Receipt,
+    pub payload: Vec<u8>,
+    pub journal: Vec<u8>,
+    pub seal: Vec<u32>,
 }

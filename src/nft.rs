@@ -1,8 +1,11 @@
-use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::zero_id::ZeroId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+
+#[repr(C)]
+#[derive(Debug, Clone, Archive, Serialize, Deserialize, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
 pub enum ContentType {
     Image,
     Video,
@@ -13,12 +16,10 @@ pub enum ContentType {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Archive, Serialize, Deserialize)]
 pub struct Nft {
     pub zero_id: ZeroId,
-    #[serde(with = "serde_arrays")]
     pub content_hash: [u8; 1024],
-    #[serde(with = "serde_arrays")]
     pub signature: [u8; 64],
     pub content_type: ContentType,
 }

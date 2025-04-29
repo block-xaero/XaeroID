@@ -1,13 +1,11 @@
-use serde::{Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[repr(C)]
+#[derive(Debug, Clone, Archive, Serialize, Deserialize, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
 pub struct ZeroId {
-    #[serde(with = "serde_arrays")]
     pub did_peer: [u8; 512],
-    #[serde(with = "serde_arrays")]
     pub pubkey: [u8; 64],
-    #[serde(with = "serde_arrays")]
     pub signature: [u8; 64],
 }
 impl Default for ZeroId {

@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+
+use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::{nft::Nft, zero_id::ZeroId, zero_proof::ZeroProof};
 pub const MAX_NFTS: usize = 10;
@@ -9,11 +10,10 @@ pub const MAX_NFTS: usize = 10;
 /// The `proofs` field is a collection of proofs associated with the wallet.    
 /// The `nfts` field is an array of `LocalNft` objects, which represent the NFTs owned by the
 /// wallet. The `nfts` field is limited to a maximum of 10 NFTs.
-#[derive(Debug)]
 #[repr(C)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Archive, Serialize, Deserialize)]
 pub struct ZeroWallet {
     pub id: ZeroId,
-    pub proofs: HashMap<String, ZeroProof>,
+    pub proofs: Vec<ZeroProof>,
     pub nfts: [Option<Nft>; MAX_NFTS],
 }

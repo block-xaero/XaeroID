@@ -1,4 +1,4 @@
-use crate::{nft::Nft, zero_id::ZeroId, zero_proof::ZeroProof, zero_wallet::MAX_NFTS};
+use crate::{nft::Nft, zero_id::ZeroId, zero_proof::ZeroProof};
 
 pub trait ZeroWalletManager {
     fn zero_id(&self) -> ZeroId;

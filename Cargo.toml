@@ -20,4 +20,4 @@ risc0-zkvm = "2.0.2"
 rkyv = "0.8.10"
 rkyv_dyn = { version = "0.7.44" }
 ssi = "0.10.2"
-xaeroflux = {version = "0.1.0-alpha.2", path = "/Users/anirudhvyas/xaeroflux"}
+xaeroflux = {version = "0.1.0-alpha.2", path = "../xaeroflux"}

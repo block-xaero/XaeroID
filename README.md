@@ -1,12 +1,12 @@
-# Zero Id
+# XaeroID
 
 ## Overview
 
-Zero Id is a privacy-preserving decentralized identity system built on zero-knowledge proofs and DID:peer technology. It provides a cloudless, peer-to-peer identity framework that enables secure verification without compromising personal data.
+XaeroID is a privacy-preserving decentralized identity system built on zero-knowledge proofs and DID:peer technology. It provides a cloudless, peer-to-peer identity framework that enables secure verification without compromising personal data.
 
 ## What We're Building
 
-Zero Id creates a comprehensive identity solution with these key components:
+XaeroID creates a comprehensive identity solution with these key components:
 
 - **Privacy-First Identity**: A DID:peer-based identifier (512 bytes) that enables verifiable claims without revealing sensitive information
 - **Zero-Knowledge Proofs**: On-chain storage of ZK proofs for identity verification using RISC Zero
@@ -48,7 +48,7 @@ Zero Id creates a comprehensive identity solution with these key components:
 
 ## Why a Library?
 
-Zero Id is designed as a library to provide a portable, flexible foundation for decentralized applications:
+XaeroID is designed as a library to provide a portable, flexible foundation for decentralized applications:
 
 1. **Portability**: Easily integrate Zero Id into any Rust-based application
 2. **Composability**: Use specific components or the entire identity stack

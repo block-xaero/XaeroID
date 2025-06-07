@@ -37,7 +37,7 @@ pub enum DidPeerError {
 /// Encode a 897-byte Falcon public key into a `did:peer:` string.
 pub fn encode_peer_did(pubkey: &[u8; 897]) -> String {
     let mb = encode(Base::Base58Btc, pubkey);
-    format!("did:peer:{}", mb)
+    format!("did:peer:{mb}")
 }
 
 /// Decode a `did:peer:` string back into the 897-byte Falcon public key.

@@ -1,0 +1,19 @@
+--- a/src/identity.rs
++++ b/src/identity.rs
+@@
+ #[cfg(test)]
+ mod tests {
+-    use rand::Rng;
++    // removed unused Rng import
+
+     use super::*;
+
+@@ #[test]
+-        let challenge: [u8; 32] = rand::thread_rng().gen();
++        let challenge: [u8; 32] = rand::random::<[u8; 32]>();
+@@ #[test]
+-        let challenge: [u8; 32] = rand::thread_rng().gen();
++        let challenge: [u8; 32] = rand::random::<[u8; 32]>();
+@@ #[test]
+-        let challenge: [u8; 32] = rand::thread_rng().gen();
++        let challenge: [u8; 32] = rand::random::<[u8; 32]>();

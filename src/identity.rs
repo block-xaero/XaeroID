@@ -62,7 +62,7 @@ mod tests {
     fn test_sign_and_verify_challenge() {
         let mgr = XaeroIdentityManager {};
         let xid = mgr.new_id();
-        let challenge: [u8; 32] = rand::thread_rng().gen();
+        let challenge: [u8; 32] = rand::random::<[u8; 32]>();
         let sig = mgr.sign_challenge(&xid, &challenge);
         assert!(mgr.verify_challenge(&xid, &challenge, &sig));
     }
@@ -71,7 +71,7 @@ mod tests {
     fn test_invalid_signature_rejected() {
         let mgr = XaeroIdentityManager {};
         let xid = mgr.new_id();
-        let challenge: [u8; 32] = rand::thread_rng().gen();
+        let challenge: [u8; 32] = rand::random::<[u8; 32]>();
         let mut sig = mgr.sign_challenge(&xid, &challenge);
         sig[0] ^= 0xFF; // Corrupt it
         assert!(!mgr.verify_challenge(&xid, &challenge, &sig));
@@ -81,7 +81,7 @@ mod tests {
     fn test_invalid_did_peer_rejected() {
         let mgr = XaeroIdentityManager {};
         let mut xid = mgr.new_id();
-        let challenge: [u8; 32] = rand::thread_rng().gen();
+        let challenge: [u8; 32] = rand::random::<[u8; 32]>();
         let sig = mgr.sign_challenge(&xid, &challenge);
         xid.did_peer[0] ^= 0xFF; // Corrupt public key
         assert!(!mgr.verify_challenge(&xid, &challenge, &sig));

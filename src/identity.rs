@@ -45,8 +45,6 @@ impl IdentityManager for XaeroIdentityManager {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-
     use super::*;
 
     #[test]

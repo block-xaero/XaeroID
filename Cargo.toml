@@ -22,7 +22,7 @@ rkyv = "0.8"
 rkyv_dyn = { version = "0.7", optional = true, package = "rkyv_dyn" }
 
 # Decentralized identity & credential support
-ssi = { git = "https://github.com/spruceid/ssi.git", branch = "main" }
+ssi = { git = "https://github.com/spruceid/ssi.git", branch = "main", default‐features = false, features = ["did-core", "did-method-key"] }
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"], optional = true }
 
 ark-std = "0.5.0"

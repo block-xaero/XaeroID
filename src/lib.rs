@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! xaeroID: skeletal types for DID, VC and ZK proofs, with integration traits for seamless app use
 use bytemuck::{Pod, Zeroable};
 

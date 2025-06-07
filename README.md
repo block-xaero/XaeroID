@@ -1,76 +1,59 @@
-# XaeroID
+# xaeroID
 
 ## Overview
 
-XaeroID is a privacy-preserving decentralized identity system built on zero-knowledge proofs and DID:peer technology. It provides a cloudless, peer-to-peer identity framework that enables secure verification without compromising personal data.
+**xaeroID** is a minimal, self-contained Rust library for cloudless, self-sovereign identity. It uses a post-quantum Falcon-512 keypair and a simple `did:peer` scheme to let you generate, store, sign, and verify identities entirely on-device—no servers, no cloud, no heavy async/runtime dependencies.
 
-## What We're Building
+---
 
-XaeroID creates a comprehensive identity solution with these key components:
+## What xaeroID Provides
 
-- **Privacy-First Identity**: A DID:peer-based identifier (512 bytes) that enables verifiable claims without revealing sensitive information
-- **Zero-Knowledge Proofs**: On-chain storage of ZK proofs for identity verification using RISC Zero
-- **Off-Chain NFT System**: Support for up to 10 NFTs per identity with on-chain ownership proofs
-- **Decentralized Architecture**: Fully peer-to-peer system with no central servers or cloud dependencies
+- **Pod-safe XaeroID**  
+  A fixed-size struct containing your entire identity (897 B Falcon public key + 1281 B Falcon secret key).
+- **IdentityManager**  
+  Generate a new `XaeroID`, sign arbitrary challenges, and verify signatures—all offline.
+- **DID:peer Support**  
+  Encode your 897 B public key as `did:peer:z…` (Base58BTC multibase) and decode it back.
+- **Credential Issuance (Stub)**  
+  Pod-safe `CredentialClaims` type plus a `FalconCredentialIssuer` you can extend with real ZK-SNARK proofs.
+- **FFI-ready**  
+  Built as `cdylib`/`staticlib`/`rlib` so you can expose it to Dart, iOS, Android, etc.
+
+---
 
 ## Key Features
 
 ### Identity Management
 
-- Generate and manage DID:peer identifiers
-- Create and verify zero-knowledge proofs about identity attributes
-- Direct peer-to-peer authentication without intermediaries
+- `new_id() -> XaeroID`
+- `sign_challenge(&XaeroID, &[u8]) -> Vec<u8>`
+- `verify_challenge(&XaeroID, &[u8], &[u8]) -> bool`
 
-### NFT Capabilities
+### DID:peer Encoding
 
-- Create and transfer NFTs tied to Zero Id
-- Maintain ownership records on-chain using ZK proofs
-- Preserve privacy while ensuring verifiable ownership
+- `encode_peer_did(&[u8; 897]) -> String`
+- `decode_peer_did(&str) -> Result<[u8; 897], Error>`
 
-### Decentralized Verification
+_No HTTP resolver needed: your DID string contains the full public key._
 
-- Verify identity without revealing underlying data
-- Authenticate to services while maintaining anonymity
-- Authorize actions based on provable attributes
+### Credential Issuance (Stub)
 
-### P2P Infrastructure
+- `CredentialClaims { birth_year: u16, email: [u8;64], … }`
+- `FalconCredentialIssuer` signs claims with your Falcon key
+- Placeholder for integration with Arkworks Groth16 circuits
 
-- Discover peers through distributed hash tables (DHT)
-- Transfer data and proofs directly between peers
-- Maintain blockchain consensus in a fully decentralized manner
-
-## Use Cases
-
-- **Social Networks**: Build privacy-preserving social platforms
-- **Marketplaces**: Enable secure peer-to-peer transactions
-- **Authentication Systems**: Replace traditional login systems with ZK verification
-- **Decentralized Governance**: Create reputation systems without compromising identity
-
-## Why a Library?
-
+---
 XaeroID is designed as a library to provide a portable, flexible foundation for decentralized applications:
 
-1. **Portability**: Easily integrate Zero Id into any Rust-based application
-2. **Composability**: Use specific components or the entire identity stack
-3. **Extensibility**: Build custom verification workflows on top of the core primitives
-4. **Interoperability**: Work seamlessly with existing DID and ZK proof systems
+## Usage
 
-## Technical Stack
+Add to your `Cargo.toml`:
 
-- **Core**: Rust-based implementation
-- **ZK Proofs**: RISC Zero for ZK-STARK generation and verification
-- **P2P Networking**: libp2p for peer discovery and communication
-- **Cryptography**: Ed25519 signatures and advanced cryptographic primitives
-- **Blockchain**: Custom lightweight blockchain for proof storage and verification
-
-## Getting Started
-
-*[Documentation on installation and basic usage will go here]*
-
-## Status
-
-This project is currently in active development. We welcome contributions and feedback from the community.
-
-## License
-
-MPL License.
+```toml
+[dependencies]
+xaeroid            = { path = "../xaeroid" }
+pqcrypto-falcon    = "0.4"
+bytemuck           = "1.23"
+multibase          = "0.10"
+thiserror          = "1.0"
+rand               = "0.8"

@@ -69,8 +69,6 @@ impl CredentialIssuer for FalconCredentialIssuer {
         let mut zk_proof = [0u8; 32];
         zk_proof.copy_from_slice(&blake3::hash(sig_bytes).as_bytes()[..32]);
 
-        
-
         XaeroCredential {
             vc: vc_buf,
             vc_len: payload.len() as u16,

@@ -1,23 +1,37 @@
 [package]
-name = "zeroid"
-version = "0.0.1"
-edition = "2024"
+name = "xaeroid"
+version = "0.1.0"
+edition = "2021"
 authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
 description = "A cloudless, decentralized DID key generator and identity verification system using Rust."
 license = "MPL-2.0"
-repository = "https://github.com/block-xaero/zeroid"
+repository = "https://github.com/block-xaero/xaeroid"
 readme = "README.md"
 keywords = ["DID", "identity", "decentralized", "zero-knowledge", "privacy"]
 categories = ["cryptography", "authentication"]
-exclude = [".github", "tests", "examples"]
 
 [lib]
-name = "zeroid"
-crate-type = ["staticlib", "cdylib", "rlib"]
+name = "xaeroid"
+crate-type = ["rlib"]
 
 [dependencies]
-risc0-zkvm = "2.0.2"
-rkyv = "0.8.10"
-rkyv_dyn = { version = "0.7.44" }
-ssi = "0.10.2"
-xaeroflux = {version = "0.1.0-alpha.2", path = "../xaeroflux"}
+pqcrypto-traits = "0.3.4"
+pqcrypto-falcon = "0.4"
+# Zero-copy serialization for event payloads
+rkyv = "0.8"
+rkyv_dyn = { version = "0.7", optional = true, package = "rkyv_dyn" }
+
+# Decentralized identity & credential support
+ssi = { git = "https://github.com/spruceid/ssi.git", branch = "main" }
+ed25519-dalek = { version = "2.0.0", features = ["rand_core"], optional = true }
+
+ark-std = "0.5.0"
+ark-relations = "0.5.1"
+ark-r1cs-std = "0.5.0"
+ark-groth16 = "0.5.0"
+ark-bn254 = "0.5.0"
+
+# Optional, lightweight dependency for streaming LDAP (if needed)
+ldap3 = "0.11.5"
+bytemuck = "1.23.0"
+rand = "0.8.5"

@@ -6011,7 +6011,7 @@ dependencies = [
 
 [[package]]
 name = "xaeroid"
-version = "0.1.0"
+version = "0.2.0-m1"
 dependencies = [
  "ark-bn254",
  "ark-groth16",

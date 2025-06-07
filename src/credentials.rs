@@ -69,15 +69,15 @@ impl CredentialIssuer for FalconCredentialIssuer {
         let mut zk_proof = [0u8; 32];
         zk_proof.copy_from_slice(&blake3::hash(sig_bytes).as_bytes()[..32]);
 
-        let mut cred = XaeroCredential {
+        
+
+        XaeroCredential {
             vc: vc_buf,
             vc_len: payload.len() as u16,
             proofs: [XaeroProof { zk_proof }; MAX_PROOFS],
             proof_count: 1,
             _pad: [0],
-        };
-
-        cred
+        }
     }
 
     fn verify_credential(&self, cred: &XaeroCredential) -> bool {

@@ -6018,6 +6018,7 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-std",
+ "blake3",
  "bytemuck",
  "ed25519-dalek",
  "ldap3",

@@ -4,6 +4,7 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 mod extern_id;
 mod identity;
+mod credentials;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]
@@ -14,7 +15,7 @@ pub struct XaeroProof {
 }
 
 /// Maximum lengths for fixed-size fields
-pub const DID_MAX_LEN: usize = 64;
+pub const DID_MAX_LEN: usize = 897;
 pub const VC_MAX_LEN: usize = 256;
 pub const MAX_PROOFS: usize = 4;
 
@@ -31,7 +32,6 @@ pub struct XaeroCredential {
     // 1 byte padding to align to 4‑byte boundary
     pub _pad: [u8; 1],
 }
-// 64+1+3+256+2+(4*32)+1+1 (456 bytes)
 unsafe impl Pod for XaeroCredential {}
 unsafe impl Zeroable for XaeroCredential {}
 
@@ -45,7 +45,7 @@ pub struct XaeroID {
     /// YOUR RESPONSIBILITY TO KEEP THIS SECRET!
     /// XAEROID gives app engineers and lib experts
     /// control XaeroID and what to do with it.
-    pub secret_key: [u8; 1280],
+    pub secret_key: [u8; 1281],
     // 3 bytes padding for alignment
     pub _pad: [u8; 3],
     /// The credential bundle for this identity.
@@ -60,9 +60,9 @@ pub trait IdentityManager {
     /// Generate a new DID and initialize credentials.
     fn new_id(&self) -> XaeroID;
     /// Sign an arbitrary challenge using the DID keypair.
-    fn sign_challenge(&self, did: &str, challenge: &[u8]) -> Vec<u8>;
+    fn sign_challenge(&self, xid: &XaeroID, challenge: &[u8]) -> Vec<u8>;
     /// Verify a signed challenge against the DID's public key.
-    fn verify_challenge(&self, did: &str, challenge: &[u8], signature: &[u8]) -> bool;
+    fn verify_challenge(&self, xid: &XaeroID, challenge: &[u8], signature: &[u8]) -> bool;
 }
 
 /// Trait for issuing and verifying verifiable credentials.

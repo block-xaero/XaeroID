@@ -2,58 +2,53 @@
 
 ## Overview
 
-**xaeroID** is a minimal, self-contained Rust library for cloudless, self-sovereign identity. It uses a post-quantum Falcon-512 keypair and a simple `did:peer` scheme to let you generate, store, sign, and verify identities entirely on-device—no servers, no cloud, no heavy async/runtime dependencies.
+**xaeroID** is a cloudless, privacy-preserving identity system for peer-to-peer applications. Built on post-quantum Falcon-512 cryptography and zero-knowledge proofs, it enables self-sovereign identity management without servers, clouds, or centralized authorities.
+
+Perfect for integration with distributed systems like **xaeroflux**, xaeroID provides cryptographic primitives for group membership, role-based access control, and credential verification—all while preserving user privacy through cutting-edge ZK-SNARK technology.
 
 ---
 
 ## What xaeroID Provides
 
-- **Pod-safe XaeroID**  
-  A fixed-size struct containing your entire identity (897 B Falcon public key + 1281 B Falcon secret key).
-- **IdentityManager**  
-  Generate a new `XaeroID`, sign arbitrary challenges, and verify signatures—all offline.
-- **DID:peer Support**  
-  Encode your 897 B public key as `did:peer:z…` (Base58BTC multibase) and decode it back.
-- **Credential Issuance (Stub)**  
-  Pod-safe `CredentialClaims` type plus a `FalconCredentialIssuer` you can extend with real ZK-SNARK proofs.
-- **FFI-ready**  
-  Built as `cdylib`/`staticlib`/`rlib` so you can expose it to Dart, iOS, Android, etc.
+### 🔐 **Post-Quantum Identity**
+- **Pod-safe XaeroID**: Fixed-size struct (897B public + 1281B secret key)
+- **Falcon-512 signatures**: Quantum-resistant cryptographic foundation
+- **DID:peer support**: Offline-resolvable decentralized identifiers
+
+### 🎭 **Zero-Knowledge Proofs**
+- **RoleCircuit**: Prove sufficient permissions without revealing exact role
+- **MembershipCircuit**: Prove group membership without revealing identity
+- **PreimageCircuit**: Prove knowledge of secrets without disclosure
+- **Arkworks integration**: Groth16 SNARKs on BN254 curve
+
+### 🌐 **P2P Integration Ready**
+- **xaeroflux compatibility**: Built for distributed event systems
+- **FFI-ready**: Export to Dart, iOS, Android, WASM
+- **Memory-safe**: Zero-copy serialization with bytemuck
 
 ---
 
 ## Key Features
 
-### Identity Management
+- Identity Management
+- DID:Peer falcon512 based - quantum safe cryptography.
+- Verifiable credential issuance.
+- Zk Proofs based on `arkworks` library.
 
-- `new_id() -> XaeroID`
-- `sign_challenge(&XaeroID, &[u8]) -> Vec<u8>`
-- `verify_challenge(&XaeroID, &[u8], &[u8]) -> bool`
-
-### DID:peer Encoding
-
-- `encode_peer_did(&[u8; 897]) -> String`
-- `decode_peer_did(&str) -> Result<[u8; 897], Error>`
-
-_No HTTP resolver needed: your DID string contains the full public key._
-
-### Credential Issuance (Stub)
-
-- `CredentialClaims { birth_year: u16, email: [u8;64], … }`
-- `FalconCredentialIssuer` signs claims with your Falcon key
-- Placeholder for integration with Arkworks Groth16 circuits
-
----
-XaeroID is designed as a library to provide a portable, flexible foundation for decentralized applications:
-
-## Usage
-
-Add to your `Cargo.toml`:
-
+### Usage
+Add to your Cargo.toml:
 ```toml
 [dependencies]
-xaeroid            = { path = "../xaeroid" }
-pqcrypto-falcon    = "0.4"
-bytemuck           = "1.23"
-multibase          = "0.10"
-thiserror          = "1.0"
-rand               = "0.8"
+xaeroid = "0.2.0-m2"
+
+# Core dependencies (automatically included)
+pqcrypto-falcon = "0.4"
+arkworks-bn254 = "0.5" 
+arkworks-groth16 = "0.5"
+arkworks-std = "0.5"
+bytemuck = "1.23"
+multibase = "0.10"
+thiserror = "1.0"
+rand = "0.8"
+blake3 = "1.5"
+```

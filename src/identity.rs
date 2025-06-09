@@ -13,6 +13,7 @@ use bytemuck::Zeroable;
 // ----------------------------------------------------------------
 use multibase::{decode, encode, Base};
 use pqcrypto_falcon::{
+    falcon512,
     falcon512::{verify_detached_signature, PublicKey},
     falcon512_detached_sign,
 };
@@ -55,37 +56,104 @@ pub fn decode_peer_did(did: &str) -> Result<[u8; 897], DidPeerError> {
     arr.copy_from_slice(&data);
     Ok(arr)
 }
-/// The Falcon-based identity manager used for Cyan/XaeroID.
+/// The Falcon-based identity manager used for XaeroID.
 ///
 /// - Generates a Falcon keypair and embeds the public and secret key in a XaeroID.
 /// - Provides signing and verification of challenge messages using detached Falcon signatures.
 /// - All identity material is embedded in XaeroID for cloudless, portable use.
 pub struct XaeroIdentityManager {}
+// Update your identity.rs sign_challenge method:
+
+// Update your identity.rs sign_challenge method:
+
 impl IdentityManager for XaeroIdentityManager {
     fn new_id(&self) -> XaeroID {
         use pqcrypto_falcon::falcon512::*;
         let (pk, sk) = keypair(); // [u8; 897], [u8; 1280]
         let mut xid = XaeroID::zeroed();
-        xid.secret_key[..1281].copy_from_slice(sk.as_bytes());
+        xid.secret_key[..sk.as_bytes().len()].copy_from_slice(sk.as_bytes());
         xid.did_peer_len = 897;
         xid.did_peer[..897].copy_from_slice(pk.as_bytes());
         xid
     }
 
-    fn sign_challenge(&self, xid: &XaeroID, challenge: &[u8]) -> Vec<u8> {
+    fn sign_challenge(&self, xid: &XaeroID, challenge: &[u8]) -> [u8; 690] {
         use pqcrypto_falcon::falcon512::SecretKey;
+
+        // 1) Reconstruct the secret key
         let sk = SecretKey::from_bytes(&xid.secret_key).expect("invalid secret key");
-        falcon512_detached_sign(challenge, &sk).as_bytes().to_vec()
+
+        // 2) Sign the challenge
+        let sig = falcon512_detached_sign(challenge, &sk);
+        let bytes: &[u8] = sig.as_bytes(); // This should work now since DetachedSignature is imported at module level
+
+        // 3) Handle variable signature length - Falcon512 signatures can vary in length
+        let mut result = [0u8; 690];
+        if bytes.len() <= 688 {
+            // Leave 2 bytes for length prefix
+            // Store actual length in the first 2 bytes (little-endian)
+            let len_bytes = (bytes.len() as u16).to_le_bytes();
+            result[0] = len_bytes[0];
+            result[1] = len_bytes[1];
+            // Move signature data after length prefix
+            result[2..2 + bytes.len()].copy_from_slice(bytes);
+        } else {
+            panic!("Falcon512 signature too long: {} bytes", bytes.len());
+        }
+        result
     }
 
     fn verify_challenge(&self, xid: &XaeroID, challenge: &[u8], signature: &[u8]) -> bool {
         let pk = PublicKey::from_bytes(&xid.did_peer[..xid.did_peer_len as usize]);
         if let Ok(pk) = pk {
-            let sig = DetachedSignature::from_bytes(signature).expect("invalid signature");
-            verify_detached_signature(&sig, challenge, &pk).is_ok()
-        } else {
-            false
+            // Extract actual signature length and data
+            if signature.len() >= 2 {
+                let sig_len = u16::from_le_bytes([signature[0], signature[1]]) as usize;
+                if signature.len() >= 2 + sig_len {
+                    let actual_sig_bytes = &signature[2..2 + sig_len];
+                    if let Ok(sig) = DetachedSignature::from_bytes(actual_sig_bytes) {
+                        return verify_detached_signature(&sig, challenge, &pk).is_ok();
+                    }
+                }
+            }
         }
+        false
+    }
+}
+// Add this test to your identity.rs to check actual Falcon signature length:
+
+#[cfg(test)]
+mod debug_tests {
+    use multibase::{decode, encode, Base};
+    use pqcrypto_falcon::{
+        falcon512,
+        falcon512::{verify_detached_signature, PublicKey, *},
+        falcon512_detached_sign,
+    };
+    use pqcrypto_traits::sign::{
+        DetachedSignature, PublicKey as PublicKeyTrait, SecretKey as SecretKeyTrait,
+    };
+    use thiserror::Error;
+
+    use super::*;
+    use crate::{IdentityManager, XaeroID};
+
+    #[test]
+    fn debug_falcon_signature_length() {
+        let (pk, sk) = keypair();
+        let challenge = b"test challenge";
+
+        let sig = falcon512_detached_sign(challenge, &sk);
+        let sig_bytes = sig.as_bytes();
+
+        println!("Public key length: {}", pk.as_bytes().len());
+        println!("Secret key length: {}", sk.as_bytes().len());
+        println!("Signature length: {}", sig_bytes.len());
+
+        // This will tell us the actual lengths
+        assert!(pk.as_bytes().len() > 0);
+        assert!(sk.as_bytes().len() > 0);
+        assert!(sig_bytes.len() > 0);
     }
 }
 

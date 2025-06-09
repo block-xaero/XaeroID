@@ -4,7 +4,10 @@ use bytemuck::{Pod, Zeroable};
 use pqcrypto_falcon::falcon512::{detached_sign, SecretKey};
 use pqcrypto_traits::sign::{DetachedSignature as PKTrait, SecretKey as SKTrait};
 
-use crate::{CredentialIssuer, XaeroCredential, XaeroID, XaeroProof, MAX_PROOFS, VC_MAX_LEN};
+use crate::{
+    identity::XaeroIdentityManager, CredentialIssuer, XaeroCredential, XaeroID, XaeroProof,
+    MAX_PROOFS, VC_MAX_LEN,
+};
 
 /// Maximum email length in the credential claims.
 pub const EMAIL_MAX_LEN: usize = 64;
@@ -92,5 +95,80 @@ impl CredentialIssuer for FalconCredentialIssuer {
         //    assume the issuer’s public key can verify a detached signature that you fetch
         //    separately. For now we just check that payload-length matches and proof_count==1.
         cred.proof_count == 1 && expected_hash.iter().any(|&b| b != 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem;
+
+    use super::*;
+    use crate::{identity::*, IdentityManager};
+
+    #[test]
+    fn test_issue_and_verify() {
+        // 1) Create an issuer with its own Falcon ID
+        let manager = XaeroIdentityManager {};
+        let issuer_xid = manager.new_id();
+        let issuer = FalconCredentialIssuer { issuer_xid };
+
+        // 2) Issue a credential
+        let email = "alice@example.com".to_string();
+        let birth_year = 1990u16;
+        let cred = issuer.issue_credential("did:peer:dummy", email.clone(), birth_year);
+
+        // 3) Check vc_len matches the size of our claims struct
+        let expected_size = mem::size_of::<CredentialClaims>();
+        assert_eq!(cred.vc_len as usize, expected_size);
+
+        // 4) We stored exactly one proof
+        assert_eq!(cred.proof_count, 1);
+
+        // 5) That proof must be non-zero (hashed signature)
+        assert!(cred.proofs[0].zk_proof.iter().any(|&b| b != 0));
+
+        // 6) And verify_credential should return true
+        assert!(issuer.verify_credential(&cred));
+    }
+
+    #[test]
+    fn test_verify_fails_on_zero_proof() {
+        let manager = XaeroIdentityManager {};
+        let issuer_xid = manager.new_id();
+        let issuer = FalconCredentialIssuer { issuer_xid };
+
+        // Issue a credential, then zero-out the hash
+        let mut cred = issuer.issue_credential("did:peer:dummy", "bob@example.com".into(), 1985);
+        cred.proof_count = 1;
+        cred.proofs[0].zk_proof = [0u8; 32];
+
+        // Now verification must fail
+        assert!(!issuer.verify_credential(&cred));
+    }
+
+    #[test]
+    fn test_verify_fails_on_wrong_vc_len() {
+        let manager = XaeroIdentityManager {};
+        let issuer_xid = manager.new_id();
+        let issuer = FalconCredentialIssuer { issuer_xid };
+
+        // Issue a credential, then tamper with vc_len
+        let mut cred = issuer.issue_credential("did:peer:dummy", "carol@example.com".into(), 2000);
+        cred.vc_len = cred.vc_len.wrapping_add(1);
+
+        assert!(!issuer.verify_credential(&cred));
+    }
+
+    #[test]
+    fn test_verify_fails_on_proof_count_zero() {
+        let manager = XaeroIdentityManager {};
+        let issuer_xid = manager.new_id();
+        let issuer = FalconCredentialIssuer { issuer_xid };
+
+        // Issue a credential, then set proof_count to zero
+        let mut cred = issuer.issue_credential("did:peer:dummy", "dan@example.com".into(), 1970);
+        cred.proof_count = 0;
+
+        assert!(!issuer.verify_credential(&cred));
     }
 }

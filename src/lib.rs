@@ -2,9 +2,13 @@
 //! xaeroID: skeletal types for DID, VC and ZK proofs, with integration traits for seamless app use
 use bytemuck::{Pod, Zeroable};
 
+mod circuits;
 mod credentials;
 mod extern_id;
 mod identity;
+mod zk_proofs;
+// mod bellman_proofs;
+mod arkworks_proofs;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]
@@ -60,7 +64,7 @@ pub trait IdentityManager {
     /// Generate a new DID and initialize credentials.
     fn new_id(&self) -> XaeroID;
     /// Sign an arbitrary challenge using the DID keypair.
-    fn sign_challenge(&self, xid: &XaeroID, challenge: &[u8]) -> Vec<u8>;
+    fn sign_challenge(&self, xid: &XaeroID, challenge: &[u8]) -> [u8; 690];
     /// Verify a signed challenge against the DID's public key.
     fn verify_challenge(&self, xid: &XaeroID, challenge: &[u8], signature: &[u8]) -> bool;
 }

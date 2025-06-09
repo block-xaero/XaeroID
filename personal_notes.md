@@ -1,8 +1,5 @@
 # Zero-Knowledge Proofs and Arkworks: Complete Summary
 
-## What We Built: Working Groth16 Role Proof System
-
-Successfully integrated Groth16 zk-SNARKs with your existing xaeroID Falcon512 DID:peer system to prove role authorization without revealing exact role levels.
 
 ```rust
 // Working example:

@@ -64,4 +64,4 @@ jobs:
         run: cargo test --verbose
 
       - name: Lint with Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --

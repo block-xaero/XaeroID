@@ -2,7 +2,6 @@ use ark_bn254::{Bn254, Fr};
 use ark_groth16::Proof;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
-use ark_serialize::CanonicalSerialize;
 use bytemuck::Zeroable;
 
 use crate::zk_proofs::ProofBytes;

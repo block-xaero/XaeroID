@@ -17,6 +17,9 @@ crate-type = ["rlib"]
 [dependencies]
 pqcrypto-traits = "0.3.4"
 pqcrypto-falcon = "0.4"
+rkyv = { version = "0.8.10",default-features = true, features = ["std", "bytecheck"] }
+bytecheck = "0.8.1"
+rkyv_dyn = "0.7.44"
 bytemuck = "1.23.0"
 rand = "0.8.5"
 rand_chacha = "0.3"
@@ -35,3 +38,4 @@ ark-groth16 = "0.4"
 ark-bn254 = "0.4"
 ark-serialize = "0.4"
 ark-snark = "0.4"
+arkworks-gadgets = "0.4"

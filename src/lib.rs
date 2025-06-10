@@ -1,14 +1,16 @@
 #![allow(dead_code)]
 //! xaeroID: skeletal types for DID, VC and ZK proofs, with integration traits for seamless app use
+#![feature(trivial_bounds)]
 use bytemuck::{Pod, Zeroable};
 
-mod circuits;
-mod credentials;
-mod extern_id;
-mod identity;
-mod zk_proofs;
+pub mod credentials;
+pub mod extern_id;
+pub mod identity;
+pub mod zk_proofs;
 // mod bellman_proofs;
-mod arkworks_proofs;
+pub mod arkworks_proofs;
+pub mod circuits;
+pub mod domain;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]

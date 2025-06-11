@@ -1730,7 +1730,7 @@ dependencies = [
 
 [[package]]
 name = "xaeroid"
-version = "0.3.0-m3"
+version = "0.2.0-rc1"
 dependencies = [
  "ark-bn254 0.4.0",
  "ark-ec 0.4.2",

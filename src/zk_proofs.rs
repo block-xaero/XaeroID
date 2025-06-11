@@ -68,7 +68,7 @@ impl XaeroProofs for XaeroID {
         // a simple Blake3 preimage circuit: we hash self's email (or other secret) and compare
         // For now we'll just return blake3(self.did_peer) == allowed_hash ? [] : panic!
         let actual = blake3::hash(&self.did_peer[..self.did_peer_len as usize]);
-        if &actual.as_bytes()[..32] != &allowed_hash {
+        if actual.as_bytes()[..32] != allowed_hash {
             panic!("not a member");
         }
         // returning an empty ProofBytes means "I proved it" — you could encode a ZK proof here
@@ -83,7 +83,7 @@ impl XaeroProofs for XaeroID {
 
     fn prove_role(&self, role: u8, min_role: u8) -> ProofBytes {
         // Use Arkworks Groth16 proof instead of simple comparison
-        crate::arkworks_proofs::ArkRoleProver::prove_role_to_bytes(role, min_role)
+        crate::circuits::role_circuit::ArkRoleProver::prove_role_to_bytes(role, min_role)
     }
 
     fn verify_role(min_role: u8, proof: &[u8]) -> bool {
@@ -107,7 +107,7 @@ impl XaeroProofs for XaeroID {
                     len,
                     _pad: [0, 0],
                 };
-                return crate::arkworks_proofs::ArkRoleProver::verify_role_from_bytes(
+                return crate::circuits::role_circuit::ArkRoleProver::verify_role_from_bytes(
                     min_role,
                     &proof_bytes,
                 );
@@ -125,6 +125,6 @@ impl XaeroProofs for XaeroID {
             len: proof.len() as u16,
             _pad: [0, 0],
         };
-        crate::arkworks_proofs::ArkRoleProver::verify_role_from_bytes(min_role, &proof_bytes)
+        crate::circuits::role_circuit::ArkRoleProver::verify_role_from_bytes(min_role, &proof_bytes)
     }
 }

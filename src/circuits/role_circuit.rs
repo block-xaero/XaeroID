@@ -15,6 +15,7 @@ pub struct RoleCircuit {
     pub min_role: Option<u8>,
 }
 
+#[allow(clippy::needless_range_loop)]
 impl ConstraintSynthesizer<Fr> for RoleCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // Allocate private input: my_role

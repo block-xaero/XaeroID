@@ -13,7 +13,6 @@ use bytemuck::Zeroable;
 // ----------------------------------------------------------------
 use multibase::{decode, encode, Base};
 use pqcrypto_falcon::{
-    falcon512,
     falcon512::{verify_detached_signature, PublicKey},
     falcon512_detached_sign,
 };
@@ -124,19 +123,11 @@ impl IdentityManager for XaeroIdentityManager {
 
 #[cfg(test)]
 mod debug_tests {
-    use multibase::{decode, encode, Base};
-    use pqcrypto_falcon::{
-        falcon512,
-        falcon512::{verify_detached_signature, PublicKey, *},
-        falcon512_detached_sign,
-    };
+
+    use pqcrypto_falcon::{falcon512::*, falcon512_detached_sign};
     use pqcrypto_traits::sign::{
         DetachedSignature, PublicKey as PublicKeyTrait, SecretKey as SecretKeyTrait,
     };
-    use thiserror::Error;
-
-    use super::*;
-    use crate::{IdentityManager, XaeroID};
 
     #[test]
     fn debug_falcon_signature_length() {
@@ -151,9 +142,9 @@ mod debug_tests {
         println!("Signature length: {}", sig_bytes.len());
 
         // This will tell us the actual lengths
-        assert!(pk.as_bytes().len() > 0);
-        assert!(sk.as_bytes().len() > 0);
-        assert!(sig_bytes.len() > 0);
+        assert!(!pk.as_bytes().is_empty());
+        assert!(!sk.as_bytes().is_empty());
+        assert!(!sig_bytes.is_empty());
     }
 }
 

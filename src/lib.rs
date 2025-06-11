@@ -8,7 +8,6 @@ pub mod extern_id;
 pub mod identity;
 pub mod zk_proofs;
 // mod bellman_proofs;
-pub mod arkworks_proofs;
 pub mod circuits;
 pub mod domain;
 
@@ -77,26 +76,4 @@ pub trait CredentialIssuer {
     fn issue_credential(&self, did: &str, email: String, birth_year: u16) -> XaeroCredential;
     /// Verify the integrity and signature of a credential.
     fn verify_credential(&self, cred: &XaeroCredential) -> bool;
-}
-
-/// Trait for creating and verifying zero-knowledge proofs for key Cyan workflows:
-/// - user attributes (age, credential validity)
-/// - workspace membership (access control)
-pub trait ProofProver {
-    /// Prove that a private `birth_year` satisfies a public threshold (e.g. age ≥ threshold).
-    fn prove_age(&self, birth_year: u16, threshold: u16) -> XaeroProof;
-    /// Verify an age proof against the public threshold.
-    fn verify_age_proof(&self, proof: &XaeroProof, threshold: u16) -> bool;
-
-    /// Prove possession and integrity of a serialized credential without revealing its contents.
-    /// `credential_bytes` is the raw VC serialization (up to VC_MAX_LEN).
-    fn prove_credential_possession(&self, credential_bytes: &[u8]) -> XaeroProof;
-    /// Verify a credential-possession proof against the public commitment (e.g. hash of VC).
-    fn verify_credential_possession(&self, proof: &XaeroProof, public_commitment: &[u8]) -> bool;
-
-    /// Prove membership in a workspace (access control) without revealing additional data.
-    /// `workspace_id_bytes` is the raw workspace identifier (e.g. DID of workspace).
-    fn prove_workspace_membership(&self, workspace_id_bytes: &[u8]) -> XaeroProof;
-    /// Verify a workspace-membership proof for a given workspace identifier.
-    fn verify_workspace_membership(&self, proof: &XaeroProof, workspace_id_bytes: &[u8]) -> bool;
 }

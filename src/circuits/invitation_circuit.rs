@@ -1,10 +1,4 @@
-use ark_bn254::{Bn254, Fr};
-use ark_groth16::Proof;
-use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
-use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
-use bytemuck::Zeroable;
-
-use crate::zk_proofs::ProofBytes;
+use ark_bn254::Fr;
 
 // Problem: How do you join your FIRST group without existing membership?
 struct InvitationCircuit {

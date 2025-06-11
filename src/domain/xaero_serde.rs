@@ -160,10 +160,11 @@ mod tests {
         let xaero_fr = XaeroIdFr::from(fr);
 
         // Serialize with rkyv
-        let bytes = rkyv::to_bytes::<Failure>(&xaero_fr).unwrap();
+        let bytes = rkyv::to_bytes::<Failure>(&xaero_fr).expect("failed_to_unravel");
 
         // Zero-copy access
-        let archived = rkyv::access::<ArchivedXaeroIdFr, Failure>(&bytes).unwrap();
+        let archived =
+            rkyv::access::<ArchivedXaeroIdFr, Failure>(&bytes).expect("failed_to_unravel");
         let restored_fr = archived.as_fr();
 
         assert_eq!(fr, restored_fr);

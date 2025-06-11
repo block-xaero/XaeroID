@@ -1,5 +1,5 @@
 use ark_bn254::{Bn254, Fr};
-use ark_groth16::{Groth16, Proof};
+use ark_groth16::Proof;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
 use bytemuck::Zeroable;
@@ -14,6 +14,7 @@ pub struct ObjectCreationCircuit {
     new_object_root: Option<Fr>,   // Public: merkle root of new object
 }
 
+#[allow(clippy::needless_range_loop)]
 impl ConstraintSynthesizer<Fr> for ObjectCreationCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // Allocate private inputs
@@ -165,14 +166,14 @@ mod tests {
         let object_seed = Fr::rand(&mut rng);
 
         // The circuit expects: new_object_root = object_seed + creator_role
-        let new_object_root = &object_seed + &Fr::from(creator_role as u64);
+        let new_object_root = object_seed + Fr::from(creator_role as u64);
 
         // Generate proof
         let proof = ObjectCreationProver::prove_creation(
             creator_role,
             min_creation_role,
             object_seed,
-            new_object_root.clone(),
+            new_object_root,
         )
         .expect("Object proof generation failed");
 

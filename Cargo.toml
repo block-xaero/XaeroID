@@ -1,7 +1,7 @@
 [package]
 name = "xaeroid"
-version = "0.3.0-m3"
-edition = "2021"  # Note: 2024 edition doesn't exist yet
+version = "0.2.0-rc1"
+edition = "2024" 
 authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
 description = "A cloudless, decentralized DID key generator and identity verification system using Rust."
 license = "MPL-2.0"

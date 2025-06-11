@@ -155,14 +155,14 @@ mod tests {
         // Simple constraint: member_token = group_id
         let member_token = group_id;
         let token_randomness = Fr::rand(&mut rng);
-        let token_commitment = &member_token + &token_randomness;
+        let token_commitment = member_token + token_randomness;
 
         // Generate proof - clone values to avoid moves
         let proof = MembershipProver::prove_membership(
             member_token,
             token_randomness,
-            token_commitment.clone(),
-            group_id.clone(),
+            token_commitment,
+            group_id,
         )
         .expect("Proof generation failed");
 

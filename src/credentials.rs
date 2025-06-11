@@ -4,10 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use pqcrypto_falcon::falcon512::{detached_sign, SecretKey};
 use pqcrypto_traits::sign::{DetachedSignature as PKTrait, SecretKey as SKTrait};
 
-use crate::{
-    identity::XaeroIdentityManager, CredentialIssuer, XaeroCredential, XaeroID, XaeroProof,
-    MAX_PROOFS, VC_MAX_LEN,
-};
+use crate::{CredentialIssuer, XaeroCredential, XaeroID, XaeroProof, MAX_PROOFS, VC_MAX_LEN};
 
 /// Maximum email length in the credential claims.
 pub const EMAIL_MAX_LEN: usize = 64;
@@ -103,7 +100,7 @@ mod tests {
     use std::mem;
 
     use super::*;
-    use crate::{identity::*, IdentityManager};
+    use crate::{identity::XaeroIdentityManager, IdentityManager};
 
     #[test]
     fn test_issue_and_verify() {

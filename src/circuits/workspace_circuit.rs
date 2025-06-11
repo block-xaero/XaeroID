@@ -14,6 +14,7 @@ pub struct WorkspaceCreationCircuit {
     new_workspace_root: Option<Fr>, // Public: merkle root of new workspace
 }
 
+#[allow(clippy::needless_range_loop)]
 impl ConstraintSynthesizer<Fr> for WorkspaceCreationCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // Similar to ObjectCreationCircuit but for workspaces
@@ -163,14 +164,14 @@ mod tests {
         let workspace_seed = Fr::rand(&mut rng);
 
         // The circuit expects: new_workspace_root = workspace_seed * creator_role
-        let new_workspace_root = &workspace_seed * &Fr::from(creator_role as u64);
+        let new_workspace_root = workspace_seed * Fr::from(creator_role as u64);
 
         // Generate proof
         let proof = WorkspaceCreationProver::prove_creation(
             creator_role,
             min_creation_role,
             workspace_seed,
-            new_workspace_root.clone(),
+            new_workspace_root,
         )
         .expect("Workspace proof generation failed");
 

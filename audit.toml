@@ -1,0 +1,11 @@
+[advisories]
+# Ignore the cargo-audit tool's own vulnerability (not in our code)
+ignore = [
+    "RUSTSEC-2025-0021",  # gix-features in cargo-audit tool
+]
+
+# Allow unmaintained warnings (these are from stable arkworks deps)
+unmaintained = "allow"
+
+# Keep unsound errors (we want to know about real security issues)
+unsound = "deny"

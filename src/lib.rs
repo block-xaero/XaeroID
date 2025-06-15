@@ -16,7 +16,7 @@ pub mod domain;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct XaeroProof {
     /// The raw proof bytes, stored as a fixed-size array.
     pub zk_proof: [u8; 32],
@@ -45,7 +45,7 @@ unsafe impl Zeroable for XaeroCredential {}
 
 /// The core decentralized identity type, fully Pod‑safe.
 #[repr(C)]
-#[derive(Debug,Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct XaeroID {
     /// peer DID bytes (without "did:peer:" prefix) and its length.
     pub did_peer: [u8; DID_MAX_LEN],

@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 //! xaeroID: skeletal types for DID, VC and ZK proofs, with integration traits for seamless app use
 #![feature(trivial_bounds)]
+
+use std::hash::{Hash, Hasher};
+
 use bytemuck::{Pod, Zeroable};
 
 pub mod credentials;
@@ -13,7 +16,7 @@ pub mod domain;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug,Clone, Copy)]
 pub struct XaeroProof {
     /// The raw proof bytes, stored as a fixed-size array.
     pub zk_proof: [u8; 32],
@@ -26,7 +29,7 @@ pub const MAX_PROOFS: usize = 4;
 
 /// A fixed-size credential container holding a serialized VC and up to N proofs.
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct XaeroCredential {
     /// Serialized VerifiableCredential bytes (e.g. JWT/JSON‑LD) with length.
     pub vc: [u8; VC_MAX_LEN],
@@ -42,7 +45,7 @@ unsafe impl Zeroable for XaeroCredential {}
 
 /// The core decentralized identity type, fully Pod‑safe.
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug,Copy, Clone)]
 pub struct XaeroID {
     /// peer DID bytes (without "did:peer:" prefix) and its length.
     pub did_peer: [u8; DID_MAX_LEN],
@@ -59,6 +62,23 @@ pub struct XaeroID {
 unsafe impl Pod for XaeroID {}
 unsafe impl Zeroable for XaeroID {}
 
+impl PartialEq for XaeroID {
+    fn eq(&self, other: &Self) -> bool {
+        self.did_peer_len == other.did_peer_len
+            && self.did_peer[..self.did_peer_len as usize]
+                == other.did_peer[..other.did_peer_len as usize]
+    }
+}
+
+impl Eq for XaeroID {}
+impl Hash for XaeroID {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash only the actual DID peer data, not the padding
+        self.did_peer[..self.did_peer_len as usize].hash(state);
+        // Optionally include the length for extra safety
+        self.did_peer_len.hash(state);
+    }
+}
 pub const XAERO_ID_SIZE: usize = std::mem::size_of::<XaeroID>();
 /// Trait for DID generation, signing and verification.
 pub trait IdentityManager {

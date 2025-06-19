@@ -5,6 +5,7 @@
 use std::hash::{Hash, Hasher};
 
 use bytemuck::{Pod, Zeroable};
+use rkyv::{Archive, Deserialize, Serialize};
 
 pub mod credentials;
 pub mod extern_id;
@@ -16,7 +17,8 @@ pub mod domain;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Archive, Serialize, Deserialize)]
+#[rkyv(derive(Debug))]
 pub struct XaeroProof {
     /// The raw proof bytes, stored as a fixed-size array.
     pub zk_proof: [u8; 32],
@@ -29,7 +31,8 @@ pub const MAX_PROOFS: usize = 4;
 
 /// A fixed-size credential container holding a serialized VC and up to N proofs.
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, Archive, Serialize, Deserialize)]
+#[rkyv(derive(Debug))]
 pub struct XaeroCredential {
     /// Serialized VerifiableCredential bytes (e.g. JWT/JSON‑LD) with length.
     pub vc: [u8; VC_MAX_LEN],
@@ -45,7 +48,8 @@ unsafe impl Zeroable for XaeroCredential {}
 
 /// The core decentralized identity type, fully Pod‑safe.
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, Archive, Serialize, Deserialize)]
+#[rkyv(derive(Debug))]
 pub struct XaeroID {
     /// peer DID bytes (without "did:peer:" prefix) and its length.
     pub did_peer: [u8; DID_MAX_LEN],

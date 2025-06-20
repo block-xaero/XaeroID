@@ -899,6 +899,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusted-ring"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86ca4d837e2897f784e2e5b17e08dbb113799d762572b44ae52af4045a87a79e"
+dependencies = [
+ "bytemuck",
+ "thiserror",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1149,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "xaeroid"
-version = "0.2.2-rc2"
+version = "0.3.0-rc3"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -1168,6 +1178,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rkyv",
+ "rusted-ring",
  "thiserror",
 ]
 

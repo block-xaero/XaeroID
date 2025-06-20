@@ -61,7 +61,7 @@ jobs:
         run: cargo build --verbose
 
       - name: Test
-        run: cargo test --verbose
+        run: RUST_MIN_STACK=16777216 cargo test --verbose
 
       - name: Lint with Clippy
         run: cargo clippy --all-targets --all-features --

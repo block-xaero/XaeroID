@@ -5,7 +5,7 @@
 use std::hash::{Hash, Hasher};
 
 use bytemuck::{Pod, Zeroable};
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Archive, Archived, Deserialize, Serialize};
 
 pub mod credentials;
 pub mod extern_id;
@@ -84,6 +84,28 @@ impl Hash for XaeroID {
         self.did_peer_len.hash(state);
     }
 }
+impl Hash for ArchivedXaeroID {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash the archived u16 directly
+        self.did_peer_len.hash(state);
+
+        // Hash only the actual DID peer data
+        let len = self.did_peer_len.to_native() as usize;
+        self.did_peer[..len].hash(state);
+    }
+}
+
+impl PartialEq for ArchivedXaeroID {
+    fn eq(&self, other: &Self) -> bool {
+        // Compare archived u16s directly first
+        self.did_peer_len == other.did_peer_len && {
+            let len = self.did_peer_len.to_native() as usize;
+            self.did_peer[..len] == other.did_peer[..len]
+        }
+    }
+}
+
+impl Eq for ArchivedXaeroID {}
 pub const XAERO_ID_SIZE: usize = std::mem::size_of::<XaeroID>();
 /// Trait for DID generation, signing and verification.
 pub trait IdentityManager {

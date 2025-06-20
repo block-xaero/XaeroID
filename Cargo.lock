@@ -900,9 +900,9 @@ dependencies = [
 
 [[package]]
 name = "rusted-ring"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86ca4d837e2897f784e2e5b17e08dbb113799d762572b44ae52af4045a87a79e"
+checksum = "16877a7d50be55d3d2b3093e9db6067343d58fb485bdd6f6f7a8d4c307a68fd2"
 dependencies = [
  "bytemuck",
  "thiserror",

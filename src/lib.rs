@@ -5,7 +5,7 @@
 use std::hash::{Hash, Hasher};
 
 use bytemuck::{Pod, Zeroable};
-use rkyv::{Archive, Archived, Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
 pub mod credentials;
 pub mod extern_id;

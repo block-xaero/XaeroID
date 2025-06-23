@@ -15,7 +15,7 @@ name = "xaeroid"
 crate-type = ["rlib"]
 
 [dependencies]
-rusted-ring = "0.3.1"
+rusted-ring = "0.4.0"
 pqcrypto-traits = "0.3.4"
 pqcrypto-falcon = "0.4"
 rkyv = { version = "0.8.10",default-features = true, features = ["std", "bytecheck"] }

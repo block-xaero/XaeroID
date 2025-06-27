@@ -14,7 +14,6 @@ pub mod zk_proofs;
 // mod bellman_proofs;
 pub mod circuits;
 pub mod domain;
-mod pool;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]

@@ -15,6 +15,7 @@ name = "xaeroid"
 crate-type = ["rlib"]
 
 [dependencies]
+rusted-ring-new = {package = "rusted-ring" , version = "0.5.0"}
 rusted-ring = "0.4.0"
 pqcrypto-traits = "0.3.4"
 pqcrypto-falcon = "0.4"

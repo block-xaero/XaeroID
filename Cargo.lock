@@ -909,6 +909,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusted-ring"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b61ba99ba451efda797e9fc04ac295668eddd7367c8e34faa1e81a3f11e6dd69"
+dependencies = [
+ "bytemuck",
+ "thiserror",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1178,7 +1188,8 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rkyv",
- "rusted-ring",
+ "rusted-ring 0.4.0",
+ "rusted-ring 0.5.0",
  "thiserror",
 ]
 

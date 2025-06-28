@@ -78,13 +78,12 @@ pub type XaeroIdCacheS = XaeroIdHotCache<16>; // Small teams
 pub type XaeroIdCacheM = XaeroIdHotCache<32>; // Medium teams
 pub type XaeroIdCacheL = XaeroIdHotCache<64>; // Large teams
 
-
-
 #[cfg(test)]
 mod xaero_id_cache_tests {
+    use std::collections::HashSet;
+
     use super::*;
     use crate::{identity::XaeroIdentityManager, IdentityManager};
-    use std::collections::HashSet;
 
     // Helper to create test XaeroIDs
     fn create_test_xaero_id() -> XaeroID {
@@ -170,7 +169,7 @@ mod xaero_id_cache_tests {
         assert!(retrieved.is_some());
 
         // Verify it's the same ID (compare some fields)
-        let retrieved_id = retrieved.unwrap();
+        let retrieved_id = retrieved.expect("failed to unravel");
         assert_eq!(retrieved_id.did_peer_len, id.did_peer_len);
 
         println!("✅ Basic insert and get working");
@@ -345,7 +344,11 @@ mod xaero_id_cache_tests {
             let hash = xaero_id_hash(&id);
 
             // Hash should be unique
-            assert!(unique_hashes.insert(hash), "Hash collision detected at iteration {}", i);
+            assert!(
+                unique_hashes.insert(hash),
+                "Hash collision detected at iteration {}",
+                i
+            );
 
             cache.insert(id);
         }
@@ -399,7 +402,11 @@ mod xaero_id_cache_tests {
         let duration = start.elapsed();
 
         // This should be very fast
-        assert!(duration.as_millis() < 10, "Linear scan too slow: {:?}", duration);
+        assert!(
+            duration.as_millis() < 10,
+            "Linear scan too slow: {:?}",
+            duration
+        );
 
         println!("✅ Linear scan performance: {:?} for 64 lookups", duration);
     }

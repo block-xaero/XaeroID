@@ -1,6 +1,6 @@
 [package]
 name = "xaeroid"
-version = "0.3.2-rc3"
+version = "0.3.2-rc4"
 edition = "2024"
 authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
 description = "A cloudless, decentralized DID key generator and identity verification system using Rust."
@@ -15,8 +15,6 @@ name = "xaeroid"
 crate-type = ["rlib"]
 
 [dependencies]
-rusted-ring-new = {package = "rusted-ring" , version = "0.5.0"}
-rusted-ring = "0.4.0"
 pqcrypto-traits = "0.3.4"
 pqcrypto-falcon = "0.4"
 rkyv = { version = "0.8.10",default-features = true, features = ["std", "bytecheck"] }

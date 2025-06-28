@@ -12,9 +12,9 @@ pub mod extern_id;
 pub mod identity;
 pub mod zk_proofs;
 // mod bellman_proofs;
+mod cache;
 pub mod circuits;
 pub mod domain;
-mod cache;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]

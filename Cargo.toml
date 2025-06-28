@@ -1,6 +1,6 @@
 [package]
 name = "xaeroid"
-version = "0.3.2-rc4"
+version = "0.4.0"
 edition = "2024"
 authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
 description = "A cloudless, decentralized DID key generator and identity verification system using Rust."

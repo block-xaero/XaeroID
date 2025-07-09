@@ -12,7 +12,7 @@ pub mod extern_id;
 pub mod identity;
 pub mod zk_proofs;
 // mod bellman_proofs;
-mod cache;
+pub mod cache;
 pub mod circuits;
 pub mod domain;
 

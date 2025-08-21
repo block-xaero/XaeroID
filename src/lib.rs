@@ -8,13 +8,13 @@ use bytemuck::{Pod, Zeroable};
 use rkyv::{Archive, Deserialize, Serialize};
 
 pub mod credentials;
-pub mod extern_id;
 pub mod identity;
 pub mod zk_proofs;
 // mod bellman_proofs;
 pub mod cache;
 pub mod circuits;
 pub mod domain;
+mod secure_id;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]

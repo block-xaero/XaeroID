@@ -85,7 +85,6 @@ impl Hash for XaeroID {
     }
 }
 
-
 impl Hash for ArchivedXaeroID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Hash the archived u16 directly

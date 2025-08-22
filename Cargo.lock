@@ -1162,6 +1162,7 @@ dependencies = [
  "blake3",
  "bytecheck",
  "bytemuck",
+ "getrandom 0.2.16",
  "multibase",
  "pqcrypto-falcon",
  "pqcrypto-traits",

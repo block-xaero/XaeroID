@@ -57,9 +57,10 @@ impl XaeroProofs for XaeroID {
         use pqcrypto_traits::sign::{DetachedSignature, PublicKey as PublicKeyTrait};
 
         if let Ok(pk) = PublicKey::from_bytes(pubkey)
-            && let Ok(sig) = DetachedSignature::from_bytes(proof) {
-                return verify_detached_signature(&sig, challenge, &pk).is_ok();
-            }
+            && let Ok(sig) = DetachedSignature::from_bytes(proof)
+        {
+            return verify_detached_signature(&sig, challenge, &pk).is_ok();
+        }
         false
     }
 

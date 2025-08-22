@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use bytemuck::Zeroable;
 // ----------------------------------------------------------------
@@ -64,7 +64,7 @@ pub fn decode_peer_did(did: &str) -> Result<[u8; 897], DidPeerError> {
 /// - All identity material is embedded in XaeroID for cloudless, portable use.
 pub struct XaeroIdentityManager;
 
-#[derive(Debug, Error(backtrace::Error))]
+#[derive(Debug, Error)]
 pub enum EntropyError {
     #[error("insufficient entropy sources")]
     InsufficientEntropy,
@@ -127,33 +127,7 @@ fn system_entropy_available() -> bool {
 
 fn sample_system_entropy() -> Result<[u8; 32], EntropyError> {
     let mut buffer = [0u8; 32];
-
-    #[cfg(any(target_os = "ios", target_os = "macos"))]
-    {
-        use std::ptr;
-        extern "C" {
-            fn SecRandomCopyBytes(rnd: *const u8, count: usize, bytes: *mut u8) -> i32;
-        }
-        let result = unsafe { SecRandomCopyBytes(ptr::null(), 32, buffer.as_mut_ptr()) };
-        if result != 0 {
-            return Err(EntropyError::SystemEntropyFailed);
-        }
-    }
-
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        use std::{fs::File, io::Read};
-        let mut file = File::open("/dev/urandom").map_err(|_| EntropyError::SystemCallFailed)?;
-        file.read_exact(&mut buffer)
-            .map_err(|_| EntropyError::SystemCallFailed)?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        // Use Windows CryptGenRandom
-        // TODO: Implementation would go here
-    }
-
+    getrandom::getrandom(&mut buffer).map_err(|_| EntropyError::SystemEntropyFailed)?;
     Ok(buffer)
 }
 

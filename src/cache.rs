@@ -16,6 +16,12 @@ pub struct XaeroIdHotCache<const N: usize> {
     next_eviction: usize,
     entries: [([u8; 32], XaeroID, u64); N],
 }
+impl<const N: usize> Default for XaeroIdHotCache<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> XaeroIdHotCache<N> {
     pub const fn new() -> Self {
         // Compile-time check

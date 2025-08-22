@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+
 use bytemuck::Zeroable;
 // ----------------------------------------------------------------
 // DID:PEER (Falcon-512) support
@@ -60,13 +62,135 @@ pub fn decode_peer_did(did: &str) -> Result<[u8; 897], DidPeerError> {
 /// - Generates a Falcon keypair and embeds the public and secret key in a XaeroID.
 /// - Provides signing and verification of challenge messages using detached Falcon signatures.
 /// - All identity material is embedded in XaeroID for cloudless, portable use.
-pub struct XaeroIdentityManager {}
-// Update your identity.rs sign_challenge method:
+pub struct XaeroIdentityManager;
 
-// Update your identity.rs sign_challenge method:
+#[derive(Debug, Error(backtrace::Error))]
+pub enum EntropyError {
+    #[error("insufficient entropy sources")]
+    InsufficientEntropy,
+    #[error("entry not so good based on checks")]
+    LowQualityEntropy,
+    #[error("failed to get system entropy going - is your platform supported?")]
+    SystemEntropyFailed,
+}
+fn validate_system_entropy() -> Result<(), EntropyError> {
+    // Check entropy sources are working
+    if !system_entropy_available() {
+        return Err(EntropyError::InsufficientEntropy);
+    }
+
+    // Test entropy quality by sampling
+    let test_sample = sample_system_entropy()?;
+    if basic_entropy_check(&test_sample) {
+        Ok(())
+    } else {
+        Err(EntropyError::LowQualityEntropy)
+    }
+}
+fn system_entropy_available() -> bool {
+    #[cfg(target_os = "ios")]
+    {
+        true
+    } // iOS always has SecRandomCopyBytes
+
+    #[cfg(target_os = "android")]
+    {
+        std::path::Path::new("/dev/urandom").exists()
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        true
+    } // macOS always has SecRandomCopyBytes
+
+    #[cfg(target_os = "windows")]
+    {
+        true
+    } // Windows always has CryptGenRandom
+
+    #[cfg(target_os = "linux")]
+    {
+        std::path::Path::new("/dev/urandom").exists()
+    }
+
+    #[cfg(not(any(
+        target_os = "ios",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "windows",
+        target_os = "linux"
+    )))]
+    {
+        false
+    }
+}
+
+fn sample_system_entropy() -> Result<[u8; 32], EntropyError> {
+    let mut buffer = [0u8; 32];
+
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    {
+        use std::ptr;
+        extern "C" {
+            fn SecRandomCopyBytes(rnd: *const u8, count: usize, bytes: *mut u8) -> i32;
+        }
+        let result = unsafe { SecRandomCopyBytes(ptr::null(), 32, buffer.as_mut_ptr()) };
+        if result != 0 {
+            return Err(EntropyError::SystemEntropyFailed);
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        use std::{fs::File, io::Read};
+        let mut file = File::open("/dev/urandom").map_err(|_| EntropyError::SystemCallFailed)?;
+        file.read_exact(&mut buffer)
+            .map_err(|_| EntropyError::SystemCallFailed)?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Use Windows CryptGenRandom
+        // TODO: Implementation would go here
+    }
+
+    Ok(buffer)
+}
+
+fn basic_entropy_check(data: &[u8; 32]) -> bool {
+    // Basic checks:
+    // 1. Not all zeros
+    if data.iter().all(|&b| b == 0) {
+        return false;
+    }
+
+    // 2. Not all same value
+    let first = data[0];
+    if data.iter().all(|&b| b == first) {
+        return false;
+    }
+
+    // 3. Basic distribution check
+    let mut counts = [0u8; 256];
+    for &byte in data {
+        counts[byte as usize] = counts[byte as usize].saturating_add(1);
+    }
+
+    // Should have reasonable distribution (not all bytes in one bucket)
+    let max_count = counts.iter().max().unwrap_or(&0);
+    *max_count < 16 // No single byte value should appear more than half the time
+}
 
 impl IdentityManager for XaeroIdentityManager {
     fn new_id(&self) -> XaeroID {
+        match validate_system_entropy() {
+            Ok(_) => {
+                println!("system entropy is valid");
+            }
+            Err(e) => {
+                panic!("Invalid entropy : {e:?}");
+            }
+        }
         use pqcrypto_falcon::falcon512::*;
         let (pk, sk) = keypair(); // [u8; 897], [u8; 1280]
         let mut xid = XaeroID::zeroed();
@@ -123,7 +247,6 @@ impl IdentityManager for XaeroIdentityManager {
 
 #[cfg(test)]
 mod debug_tests {
-
     use pqcrypto_falcon::{falcon512::*, falcon512_detached_sign};
     use pqcrypto_traits::sign::{
         DetachedSignature, PublicKey as PublicKeyTrait, SecretKey as SecretKeyTrait,

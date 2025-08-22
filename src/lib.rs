@@ -84,6 +84,8 @@ impl Hash for XaeroID {
         self.did_peer_len.hash(state);
     }
 }
+
+
 impl Hash for ArchivedXaeroID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Hash the archived u16 directly

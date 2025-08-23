@@ -16,6 +16,7 @@ pub mod circuits;
 pub mod compressed;
 pub mod domain;
 pub mod secure_id;
+mod ffi;
 
 /// A zero-knowledge proof container (e.g. RISC Zero receipt or Groth16 SNARK proof).
 #[repr(C)]

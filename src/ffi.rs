@@ -149,3 +149,197 @@ pub extern "C" fn xaero_get_did_string(
     }
     true
 }
+
+// Add these compression functions to your ffi.rs
+
+use crate::compressed::{XaeroCompressor, Compressor};
+
+// Compress XaeroID public data for QR code
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_compress_public(
+    xid: *const XaeroID,
+    out_buffer: *mut u8,
+    buffer_capacity: usize,
+    actual_size: *mut usize
+) -> bool {
+    if xid.is_null() || out_buffer.is_null() || actual_size.is_null() {
+        return false;
+    }
+
+    let xid = unsafe { &*xid };
+    let compressor = XaeroCompressor;
+    let compressed = compressor.compress_public(xid);
+
+    if compressed.len() > buffer_capacity {
+        return false;
+    }
+
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            compressed.as_ptr(),
+            out_buffer,
+            compressed.len()
+        );
+        *actual_size = compressed.len();
+    }
+
+    true
+}
+
+// Decompress public data from QR code
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_decompress_public(
+    compressed: *const u8,
+    compressed_len: usize,
+    out_public_data: *mut XaeroPublicData
+) -> bool {
+    if compressed.is_null() || out_public_data.is_null() {
+        return false;
+    }
+
+    let compressed_slice = unsafe {
+        std::slice::from_raw_parts(compressed, compressed_len)
+    };
+
+    let compressor = XaeroCompressor;
+
+    if let Some(public_data) = compressor.decompress_public(compressed_slice) {
+        unsafe {
+            *out_public_data = public_data;
+        }
+        true
+    } else {
+        false
+    }
+}
+
+// Sign challenge with XaeroID
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_sign_challenge(
+    xid: *const XaeroID,
+    challenge: *const u8,
+    challenge_len: usize,
+    out_signature: *mut u8, // Must be at least 690 bytes for Falcon512
+    signature_len: *mut usize
+) -> bool {
+    if xid.is_null() || challenge.is_null() || out_signature.is_null() || signature_len.is_null() {
+        return false;
+    }
+
+    let xid = unsafe { &*xid };
+    let challenge_slice = unsafe {
+        std::slice::from_raw_parts(challenge, challenge_len)
+    };
+
+    let manager = XaeroIdentityManager {};
+    let signature = manager.sign_challenge(xid, challenge_slice);
+
+    unsafe {
+        let copy_len = signature.len().min(690); // Falcon512 signature size
+        std::ptr::copy_nonoverlapping(
+            signature.as_ptr(),
+            out_signature,
+            copy_len
+        );
+        *signature_len = copy_len;
+    }
+
+    true
+}
+
+// Verify challenge signature
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_verify_challenge(
+    xid: *const XaeroID,
+    challenge: *const u8,
+    challenge_len: usize,
+    signature: *const u8,
+    signature_len: usize
+) -> bool {
+    if xid.is_null() || challenge.is_null() || signature.is_null() {
+        return false;
+    }
+
+    let xid = unsafe { &*xid };
+    let challenge_slice = unsafe {
+        std::slice::from_raw_parts(challenge, challenge_len)
+    };
+    let signature_slice = unsafe {
+        std::slice::from_raw_parts(signature, signature_len)
+    };
+
+    let manager = XaeroIdentityManager {};
+    manager.verify_challenge(xid, challenge_slice, signature_slice)
+}
+
+// Get maximum compressed size for buffer allocation
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_get_max_compressed_size() -> usize {
+    // Conservative estimate: original size + compression overhead
+    std::mem::size_of::<XaeroPublicData>() + 256
+}
+
+// Get Falcon512 signature size
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_get_signature_size() -> usize {
+    690 // Falcon512 signature size
+}
+
+// Compress full XaeroID (for secure storage/sync)
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_compress_full(
+    xid: *const XaeroID,
+    out_buffer: *mut u8,
+    buffer_capacity: usize,
+    actual_size: *mut usize
+) -> bool {
+    if xid.is_null() || out_buffer.is_null() || actual_size.is_null() {
+        return false;
+    }
+
+    let xid = unsafe { &*xid };
+    let compressor = XaeroCompressor;
+    let compressed = compressor.compress_full(xid);
+
+    if compressed.len() > buffer_capacity {
+        return false;
+    }
+
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            compressed.as_ptr(),
+            out_buffer,
+            compressed.len()
+        );
+        *actual_size = compressed.len();
+    }
+
+    true
+}
+
+// Decompress full XaeroID (from secure storage/sync)
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_decompress_full(
+    compressed: *const u8,
+    compressed_len: usize,
+    out_xid: *mut XaeroID
+) -> bool {
+    if compressed.is_null() || out_xid.is_null() {
+        return false;
+    }
+
+    let compressed_slice = unsafe {
+        std::slice::from_raw_parts(compressed, compressed_len)
+    };
+
+    let compressor = XaeroCompressor;
+
+    if let Some(xid) = compressor.decompress_full(compressed_slice) {
+        unsafe {
+            *out_xid = xid;
+        }
+        true
+    } else {
+        false
+    }
+}

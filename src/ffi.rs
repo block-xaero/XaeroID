@@ -1,5 +1,6 @@
 // Add these functions to your ffi.rs
-
+#![allow(unsafe_code)]
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use std::ffi::c_char;
 
 use crate::{

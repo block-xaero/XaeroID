@@ -2,7 +2,9 @@
 
 use std::ffi::c_char;
 
-use crate::{compressed::XaeroPublicData, identity::XaeroIdentityManager, IdentityManager, XaeroID};
+use crate::{
+    compressed::XaeroPublicData, identity::XaeroIdentityManager, IdentityManager, XaeroID,
+};
 
 // Generate new XaeroID
 #[unsafe(no_mangle)]

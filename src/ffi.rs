@@ -350,7 +350,6 @@ pub extern "C" fn xaero_get_layout_info(
     true
 }
 
-
 #[unsafe(no_mangle)]
 pub extern "C" fn xaero_debug_did_data(xid: *const XaeroID) -> bool {
     if xid.is_null() {
@@ -363,7 +362,10 @@ pub extern "C" fn xaero_debug_did_data(xid: *const XaeroID) -> bool {
     println!("  did_peer_len: {}", xid.did_peer_len);
     println!("  first 8 bytes: {:?}", &xid.did_peer[..8]);
     println!("  last 8 bytes: {:?}", &xid.did_peer[889..897]);
-    println!("  all zeros check: {}", xid.did_peer[..897].iter().all(|&b| b == 0));
+    println!(
+        "  all zeros check: {}",
+        xid.did_peer[..897].iter().all(|&b| b == 0)
+    );
 
     // Try the encoding directly
     let did_bytes = &xid.did_peer[..xid.did_peer_len as usize];
@@ -372,7 +374,10 @@ pub extern "C" fn xaero_debug_did_data(xid: *const XaeroID) -> bool {
         did_array.copy_from_slice(did_bytes);
         let did_string = crate::identity::encode_peer_did(&did_array);
         println!("  encoded DID length: {}", did_string.len());
-        println!("  encoded DID prefix: {}", &did_string[..20.min(did_string.len())]);
+        println!(
+            "  encoded DID prefix: {}",
+            &did_string[..20.min(did_string.len())]
+        );
         true
     } else {
         false

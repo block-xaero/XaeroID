@@ -1,7 +1,7 @@
 // Add these functions to your ffi.rs
 #![allow(unsafe_code)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use std::ffi::c_char;
+use std::{ffi::c_char, mem::offset_of};
 
 use crate::{
     compressed::XaeroPublicData, identity::XaeroIdentityManager, IdentityManager, XaeroID,
@@ -123,12 +123,23 @@ pub extern "C" fn xaero_get_did_string(
 
     let xid = unsafe { &*xid };
 
-    // Convert to did:peer string
+    // Validate did_peer_len is reasonable
+    if xid.did_peer_len == 0 || xid.did_peer_len > 897 {
+        eprintln!("Invalid did_peer_len: {}", xid.did_peer_len);
+        return false;
+    }
+
+    // Get the actual DID peer data
     let did_bytes = &xid.did_peer[..xid.did_peer_len as usize];
-    let did_array: [u8; 897] = match did_bytes.try_into() {
-        Ok(arr) => arr,
-        Err(_) => return false,
-    };
+
+    // For Falcon 512, we expect exactly 897 bytes
+    if did_bytes.len() != 897 {
+        eprintln!("Expected 897 bytes, got {}", did_bytes.len());
+        return false;
+    }
+
+    let mut did_array = [0u8; 897];
+    did_array.copy_from_slice(did_bytes);
 
     let did_string = crate::identity::encode_peer_did(&did_array);
     let did_cstring = match std::ffi::CString::new(did_string) {
@@ -321,4 +332,20 @@ pub extern "C" fn xaero_decompress_full(
     } else {
         false
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_get_layout_info(
+    out_did_peer_len_offset: *mut usize,
+    out_secret_key_offset: *mut usize,
+) -> bool {
+    if out_did_peer_len_offset.is_null() || out_secret_key_offset.is_null() {
+        return false;
+    }
+
+    unsafe {
+        *out_did_peer_len_offset = offset_of!(XaeroID, did_peer_len);
+        *out_secret_key_offset = offset_of!(XaeroID, secret_key);
+    }
+    true
 }

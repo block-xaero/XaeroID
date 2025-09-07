@@ -8,8 +8,10 @@ use crate::{
     IdentityManager, XaeroID, XaeroProof,
 };
 
-// Maximum number of ZK proofs to store in wallet (separate from credential proofs)
+// Maximum numbers for storage
 pub const MAX_WALLET_PROOFS: usize = 16;
+pub const MAX_GROUP_MEMBERSHIPS: usize = 10;
+pub const MAX_ROLE_ASSIGNMENTS: usize = 10;
 
 /// Types of ZK proofs that can be stored in the wallet
 #[repr(u8)]
@@ -26,107 +28,106 @@ pub enum WalletProofType {
     CredentialPossession = 8,
 }
 
+/// Group membership record with ZK proof
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct GroupMembership {
+    pub group_id: [u8; 32],
+    pub member_token_commitment: [u8; 32],  // Fr serialized
+    pub issuer_pubkey: [u8; 32],            // Fr serialized
+    pub membership_proof: ProofBytes,        // The ZK proof
+    pub issued_at: u64,
+    pub expires_at: u64,
+    pub is_active: u8,
+    pub _padding: [u8; 7],
+}
+
+unsafe impl Pod for GroupMembership {}
+unsafe impl Zeroable for GroupMembership {}
+
+/// Role assignment record with ZK proof
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RoleAssignment {
+    pub group_id: [u8; 32],
+    pub role_level: u8,
+    pub role_commitment: [u8; 32],  // Fr serialized
+    pub issuer_pubkey: [u8; 32],    // Fr serialized
+    pub role_proof: ProofBytes,     // The ZK proof
+    pub issued_at: u64,
+    pub expires_at: u64,
+    pub is_active: u8,
+    pub _padding: [u8; 6],
+}
+
+unsafe impl Pod for RoleAssignment {}
+unsafe impl Zeroable for RoleAssignment {}
+
+/// Invitation record for joining groups
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct PendingInvitation {
+    pub invitation_hash: [u8; 32],
+    pub inviter_pubkey: [u8; 32],
+    pub group_id: [u8; 32],
+    pub invitation_code: [u8; 32],  // Private, encrypted
+    pub invitation_nonce: [u8; 32], // Private, encrypted
+    pub expiry_time: u64,
+    pub is_claimed: u8,
+    pub _padding: [u8; 7],
+}
+
+unsafe impl Pod for PendingInvitation {}
+unsafe impl Zeroable for PendingInvitation {}
+
 /// A wallet proof entry that extends the basic XaeroProof with metadata
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct WalletProofEntry {
-    /// The core ZK proof (your existing 32-byte format)
     pub proof: XaeroProof,
-    /// Type of this proof
     pub proof_type: u8,
-    /// Timestamp when proof was generated (Unix timestamp)
     pub timestamp: u64,
-    /// Context data (e.g., group_id for membership, min_role for role proofs)
     pub context: [u8; 32],
-    /// Additional proof data if needed (uses your ProofBytes for larger proofs)
     pub extended_proof: ProofBytes,
-    /// Whether extended_proof contains valid data
     pub has_extended: u8,
-    /// Padding for alignment
     pub _pad: [u8; 6],
 }
 
 unsafe impl Pod for WalletProofEntry {}
 unsafe impl Zeroable for WalletProofEntry {}
 
-impl WalletProofEntry {
-    pub fn new(proof_type: WalletProofType, proof: XaeroProof, context: [u8; 32]) -> Self {
-        Self {
-            proof,
-            proof_type: proof_type as u8,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-            context,
-            extended_proof: ProofBytes::zeroed(),
-            has_extended: 0,
-            _pad: [0; 6],
-        }
-    }
-
-    pub fn new_with_extended(
-        proof_type: WalletProofType,
-        proof: XaeroProof,
-        extended_proof: ProofBytes,
-        context: [u8; 32],
-    ) -> Self {
-        Self {
-            proof,
-            proof_type: proof_type as u8,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
-            context,
-            extended_proof,
-            has_extended: 1,
-            _pad: [0; 6],
-        }
-    }
-
-    pub fn get_proof_type(&self) -> Option<WalletProofType> {
-        match self.proof_type {
-            0 => Some(WalletProofType::Identity),
-            1 => Some(WalletProofType::Membership),
-            2 => Some(WalletProofType::Role),
-            3 => Some(WalletProofType::ObjectCreation),
-            4 => Some(WalletProofType::WorkspaceCreation),
-            5 => Some(WalletProofType::Delegation),
-            6 => Some(WalletProofType::Invitation),
-            7 => Some(WalletProofType::Age),
-            8 => Some(WalletProofType::CredentialPossession),
-            _ => None,
-        }
-    }
-
-    pub fn get_active_proof_data(&self) -> &[u8] {
-        if self.has_extended != 0 {
-            &self.extended_proof.data[..self.extended_proof.len as usize]
-        } else {
-            &self.proof.zk_proof
-        }
-    }
-}
-
-/// The XaeroWallet: houses identity and ZK proofs using your existing types
+/// The XaeroWallet with group/role management
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct XaeroWallet {
-    /// The core identity (your existing XaeroID with embedded credential)
+    /// The core identity
     pub identity: XaeroID,
 
-    /// Array of additional ZK proofs (beyond those in the credential)
-    pub wallet_proofs: [WalletProofEntry; MAX_WALLET_PROOFS],
+    /// Group memberships with proofs
+    pub group_memberships: [GroupMembership; MAX_GROUP_MEMBERSHIPS],
+    pub group_count: u8,
 
-    /// Number of valid wallet proofs currently stored
+    /// Role assignments with proofs
+    pub role_assignments: [RoleAssignment; MAX_ROLE_ASSIGNMENTS],
+    pub role_count: u8,
+
+    /// Pending invitations
+    pub pending_invitations: [PendingInvitation; MAX_GROUP_MEMBERSHIPS],
+    pub invitation_count: u8,
+
+    /// Array of additional ZK proofs
+    pub wallet_proofs: [WalletProofEntry; MAX_WALLET_PROOFS],
     pub wallet_proof_count: u16,
 
-    /// Wallet version for future compatibility
+    /// Issuer secret (encrypted) - only for XaeroPass Generator
+    pub issuer_secret_encrypted: [u8; 32],
+    pub is_issuer: u8,
+
+    /// Wallet version
     pub version: u16,
 
-    /// Padding for alignment
-    pub _pad: [u8; 4],
+    /// Padding
+    pub _pad: [u8; 2],
 }
 
 unsafe impl Pod for XaeroWallet {}
@@ -135,71 +136,40 @@ unsafe impl Zeroable for XaeroWallet {}
 /// CRDT operations for wallet state changes
 #[derive(Debug, Clone)]
 pub enum WalletCrdtOp {
+    GroupAdded {
+        group_id: [u8; 32],
+        issuer_pubkey: [u8; 32],
+        timestamp: u64,
+    },
+    RoleAssigned {
+        group_id: [u8; 32],
+        role_level: u8,
+        timestamp: u64,
+    },
+    InvitationReceived {
+        invitation_hash: [u8; 32],
+        group_id: [u8; 32],
+        expiry: u64,
+    },
+    InvitationClaimed {
+        invitation_hash: [u8; 32],
+        group_id: [u8; 32],
+        timestamp: u64,
+    },
     ProofAdded {
         proof_type: WalletProofType,
         proof_hash: [u8; 32],
         timestamp: u64,
         context: [u8; 32],
     },
-    ProofExpired {
-        proof_hash: [u8; 32],
-        expired_at: u64,
-    },
-    CredentialUpdated {
-        credential_hash: [u8; 32],
-        timestamp: u64,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub enum IdentityEvent {
-    ChallengeCompleted {
-        challenge_hash: [u8; 32],
-        signature: Box<[u8; 690]>, // Box the large signature array
-    },
-    PeerHandshakeInitiated {
-        peer_did: String,
-        timestamp: u64,
-    },
 }
 
 pub trait WalletEventSink {
-    /// Emit a wallet state change as a CRDT operation
     fn emit_wallet_event(
         &self,
         wallet_id: &str,
         op: WalletCrdtOp,
     ) -> Result<(), Box<dyn std::error::Error>>;
-
-    /// Emit identity verification events for P2P handshakes
-    fn emit_identity_event(
-        &self,
-        wallet_id: &str,
-        event: IdentityEvent,
-    ) -> Result<(), Box<dyn std::error::Error>>;
-}
-
-/// Default implementation that does nothing (for xaeroID standalone use)
-pub struct BlackholeEventSink;
-
-impl WalletEventSink for BlackholeEventSink {
-    fn emit_wallet_event(
-        &self,
-        _wallet_id: &str,
-        _op: WalletCrdtOp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Blackhole - does nothing
-        Ok(())
-    }
-
-    fn emit_identity_event(
-        &self,
-        _wallet_id: &str,
-        _event: IdentityEvent,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Blackhole - does nothing
-        Ok(())
-    }
 }
 
 impl XaeroWallet {
@@ -207,460 +177,400 @@ impl XaeroWallet {
     pub fn new(identity: XaeroID) -> Self {
         Self {
             identity,
+            group_memberships: [GroupMembership::zeroed(); MAX_GROUP_MEMBERSHIPS],
+            group_count: 0,
+            role_assignments: [RoleAssignment::zeroed(); MAX_ROLE_ASSIGNMENTS],
+            role_count: 0,
+            pending_invitations: [PendingInvitation::zeroed(); MAX_GROUP_MEMBERSHIPS],
+            invitation_count: 0,
             wallet_proofs: [WalletProofEntry::zeroed(); MAX_WALLET_PROOFS],
             wallet_proof_count: 0,
-            version: 1,
-            _pad: [0; 4],
+            issuer_secret_encrypted: [0; 32],
+            is_issuer: 0,
+            version: 2,
+            _pad: [0; 2],
         }
     }
 
-    /// Add a 32-byte proof to the wallet
-    pub fn add_proof(
-        &mut self,
-        proof_type: WalletProofType,
-        proof: XaeroProof,
-        context: [u8; 32],
-    ) -> Result<(), &'static str> {
-        if self.wallet_proof_count >= MAX_WALLET_PROOFS as u16 {
-            return Err("Wallet is full");
+    /// Initialize as an issuer (for XaeroPass Generator app)
+    pub fn init_as_issuer(&mut self, issuer_secret: Fr, encryption_key: &[u8; 32]) {
+        // Encrypt the issuer secret (simplified - use proper encryption in production)
+        let secret_bytes = issuer_secret.into_bigint().to_bytes_le();
+        for i in 0..32.min(secret_bytes.len()) {
+            self.issuer_secret_encrypted[i] = secret_bytes[i] ^ encryption_key[i];
+        }
+        self.is_issuer = 1;
+    }
+
+    /// Decrypt issuer secret (for XaeroPass Generator app)
+    fn get_issuer_secret(&self, encryption_key: &[u8; 32]) -> Option<Fr> {
+        if self.is_issuer == 0 {
+            return None;
         }
 
-        let entry = WalletProofEntry::new(proof_type, proof, context);
-        self.wallet_proofs[self.wallet_proof_count as usize] = entry;
-        self.wallet_proof_count += 1;
-
-        Ok(())
-    }
-
-    /// Add a larger proof to the wallet using extended storage
-    pub fn add_extended_proof(
-        &mut self,
-        proof_type: WalletProofType,
-        extended_proof: ProofBytes,
-        context: [u8; 32],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        if self.wallet_proof_count >= MAX_WALLET_PROOFS as u16 {
-            return Err("Wallet is full".into());
+        let mut decrypted = [0u8; 32];
+        for i in 0..32 {
+            decrypted[i] = self.issuer_secret_encrypted[i] ^ encryption_key[i];
         }
 
-        // Create a summary/hash for the 32-byte slot
-        let mut summary_proof = XaeroProof { zk_proof: [0; 32] };
-        let proof_slice = &extended_proof.data[..extended_proof.len as usize];
-        let hash = blake3::hash(proof_slice);
-        summary_proof
-            .zk_proof
-            .copy_from_slice(&hash.as_bytes()[..32]);
-
-        let entry =
-            WalletProofEntry::new_with_extended(proof_type, summary_proof, extended_proof, context);
-        self.wallet_proofs[self.wallet_proof_count as usize] = entry;
-        self.wallet_proof_count += 1;
-
-        Ok(())
+        Some(Fr::from_le_bytes_mod_order(&decrypted))
     }
 
-    /// Find wallet proofs of a specific type
-    pub fn find_wallet_proofs(&self, proof_type: WalletProofType) -> Vec<&WalletProofEntry> {
-        self.wallet_proofs[..self.wallet_proof_count as usize]
-            .iter()
-            .filter(|entry| entry.get_proof_type() == Some(proof_type))
-            .collect()
-    }
-
-    /// Get the most recent wallet proof of a specific type
-    pub fn get_latest_wallet_proof(
+    /// Issue initial group memberships to a XaeroID (Genesis groups)
+    pub fn issue_genesis_groups(
         &self,
-        proof_type: WalletProofType,
-    ) -> Option<&WalletProofEntry> {
-        self.find_wallet_proofs(proof_type)
-            .into_iter()
-            .max_by_key(|entry| entry.timestamp)
+        target_xaero_id: Fr,
+        group_ids: Vec<Fr>,
+        encryption_key: &[u8; 32],
+    ) -> Result<Vec<GroupMembership>, Box<dyn std::error::Error>> {
+        use crate::circuits::membership_circuit::MembershipProver;
+        use ark_std::UniformRand;
+        use rand::rngs::OsRng;
+
+        let issuer_secret = self.get_issuer_secret(encryption_key)
+            .ok_or("Not authorized as issuer")?;
+
+        let issuer_pubkey = MembershipProver::derive_issuer_pubkey(issuer_secret);
+        let mut memberships = Vec::new();
+        let mut rng = OsRng;
+
+        for group_id in group_ids {
+            let token_randomness = Fr::rand(&mut rng);
+            let (token_commitment, proof) = MembershipProver::issue_membership(
+                target_xaero_id,
+                group_id,
+                issuer_secret,
+                token_randomness,
+            )?;
+
+            let mut membership = GroupMembership::zeroed();
+
+            // Convert Fr values to bytes
+            let group_bytes = group_id.into_bigint().to_bytes_le();
+            membership.group_id[..group_bytes.len().min(32)]
+                .copy_from_slice(&group_bytes[..group_bytes.len().min(32)]);
+
+            let commitment_bytes = token_commitment.into_bigint().to_bytes_le();
+            membership.member_token_commitment[..commitment_bytes.len().min(32)]
+                .copy_from_slice(&commitment_bytes[..commitment_bytes.len().min(32)]);
+
+            let pubkey_bytes = issuer_pubkey.into_bigint().to_bytes_le();
+            membership.issuer_pubkey[..pubkey_bytes.len().min(32)]
+                .copy_from_slice(&pubkey_bytes[..pubkey_bytes.len().min(32)]);
+
+            membership.membership_proof = proof;
+            membership.issued_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs();
+            membership.expires_at = membership.issued_at + (365 * 24 * 60 * 60); // 1 year
+            membership.is_active = 1;
+
+            memberships.push(membership);
+        }
+
+        Ok(memberships)
     }
 
-    /// Access the credential proofs (from your existing XaeroCredential)
-    pub fn get_credential_proofs(&self) -> &[XaeroProof] {
-        &self.identity.credential.proofs[..self.identity.credential.proof_count as usize]
+    /// Add a group membership to the wallet
+    pub fn add_group_membership(&mut self, membership: GroupMembership) -> Result<(), &'static str> {
+        if self.group_count >= MAX_GROUP_MEMBERSHIPS as u8 {
+            return Err("Maximum groups reached");
+        }
+
+        self.group_memberships[self.group_count as usize] = membership;
+        self.group_count += 1;
+        Ok(())
     }
 
-    /// Get DID string from the wallet's identity
-    pub fn get_did(&self) -> String {
-        let did_bytes = &self.identity.did_peer[..self.identity.did_peer_len as usize];
-        format!("did:peer:{}", String::from_utf8_lossy(did_bytes))
+    /// Issue a role to a XaeroID for a specific group
+    pub fn issue_role(
+        &self,
+        target_xaero_id: Fr,
+        group_id: Fr,
+        role_level: u8,
+        encryption_key: &[u8; 32],
+    ) -> Result<RoleAssignment, Box<dyn std::error::Error>> {
+        use crate::circuits::role_circuit::RoleProver;
+        use ark_std::UniformRand;
+        use rand::rngs::OsRng;
+
+        let issuer_secret = self.get_issuer_secret(encryption_key)
+            .ok_or("Not authorized as issuer")?;
+
+        let (role_token, role_randomness, role_commitment) = RoleProver::issue_role(
+            target_xaero_id,
+            group_id,
+            role_level,
+            issuer_secret,
+        )?;
+
+        let issuer_pubkey = issuer_secret * issuer_secret; // Simplified
+
+        // Generate proof
+        let proof = RoleProver::prove_role(
+            target_xaero_id,
+            group_id,
+            role_level,
+            1, // min_role for proof
+            role_token,
+            role_randomness,
+            role_commitment,
+            issuer_pubkey,
+        )?;
+
+        let mut assignment = RoleAssignment::zeroed();
+
+        // Convert values to bytes
+        let group_bytes = group_id.into_bigint().to_bytes_le();
+        assignment.group_id[..group_bytes.len().min(32)]
+            .copy_from_slice(&group_bytes[..group_bytes.len().min(32)]);
+
+        assignment.role_level = role_level;
+
+        let commitment_bytes = role_commitment.into_bigint().to_bytes_le();
+        assignment.role_commitment[..commitment_bytes.len().min(32)]
+            .copy_from_slice(&commitment_bytes[..commitment_bytes.len().min(32)]);
+
+        let pubkey_bytes = issuer_pubkey.into_bigint().to_bytes_le();
+        assignment.issuer_pubkey[..pubkey_bytes.len().min(32)]
+            .copy_from_slice(&pubkey_bytes[..pubkey_bytes.len().min(32)]);
+
+        assignment.role_proof = proof;
+        assignment.issued_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+        assignment.expires_at = assignment.issued_at + (90 * 24 * 60 * 60); // 90 days
+        assignment.is_active = 1;
+
+        Ok(assignment)
     }
 
-    /// Get the verifiable credential
-    pub fn get_credential_data(&self) -> &[u8] {
-        &self.identity.credential.vc[..self.identity.credential.vc_len as usize]
+    /// Add a role assignment to the wallet
+    pub fn add_role_assignment(&mut self, assignment: RoleAssignment) -> Result<(), &'static str> {
+        if self.role_count >= MAX_ROLE_ASSIGNMENTS as u8 {
+            return Err("Maximum roles reached");
+        }
+
+        self.role_assignments[self.role_count as usize] = assignment;
+        self.role_count += 1;
+        Ok(())
     }
 
-    /// Remove expired proofs (older than specified seconds)
-    pub fn cleanup_expired_proofs(&mut self, max_age_seconds: u64) {
+    /// Create an invitation for someone to join a group
+    pub fn create_invitation(
+        &self,
+        target_xaero_id: Fr,
+        group_id: Fr,
+        encryption_key: &[u8; 32],
+    ) -> Result<PendingInvitation, Box<dyn std::error::Error>> {
+        use crate::circuits::invitation_circuit::InvitationProver;
+
+        let issuer_secret = self.get_issuer_secret(encryption_key)
+            .ok_or("Not authorized as issuer")?;
+
+        let expiry_time = Fr::from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs() + (7 * 24 * 60 * 60) // 7 days
+        );
+
+        let (invitation_code, invitation_nonce, invitation_hash) =
+            InvitationProver::create_invitation(
+                issuer_secret,
+                target_xaero_id,
+                group_id,
+                expiry_time,
+            )?;
+
+        let mut invitation = PendingInvitation::zeroed();
+
+        // Store invitation data
+        let hash_bytes = invitation_hash.into_bigint().to_bytes_le();
+        invitation.invitation_hash[..hash_bytes.len().min(32)]
+            .copy_from_slice(&hash_bytes[..hash_bytes.len().min(32)]);
+
+        let pubkey = issuer_secret * issuer_secret;
+        let pubkey_bytes = pubkey.into_bigint().to_bytes_le();
+        invitation.inviter_pubkey[..pubkey_bytes.len().min(32)]
+            .copy_from_slice(&pubkey_bytes[..pubkey_bytes.len().min(32)]);
+
+        let group_bytes = group_id.into_bigint().to_bytes_le();
+        invitation.group_id[..group_bytes.len().min(32)]
+            .copy_from_slice(&group_bytes[..group_bytes.len().min(32)]);
+
+        // Encrypt invitation code and nonce (simplified)
+        let code_bytes = invitation_code.into_bigint().to_bytes_le();
+        for i in 0..32.min(code_bytes.len()) {
+            invitation.invitation_code[i] = code_bytes[i] ^ encryption_key[i];
+        }
+
+        let nonce_bytes = invitation_nonce.into_bigint().to_bytes_le();
+        for i in 0..32.min(nonce_bytes.len()) {
+            invitation.invitation_nonce[i] = nonce_bytes[i] ^ encryption_key[(i + 16) % 32];
+        }
+
+        invitation.expiry_time = expiry_time.into_bigint().0[0];
+        invitation.is_claimed = 0;
+
+        Ok(invitation)
+    }
+
+    /// Add an invitation to the wallet
+    pub fn add_invitation(&mut self, invitation: PendingInvitation) -> Result<(), &'static str> {
+        if self.invitation_count >= MAX_GROUP_MEMBERSHIPS as u8 {
+            return Err("Maximum invitations reached");
+        }
+
+        self.pending_invitations[self.invitation_count as usize] = invitation;
+        self.invitation_count += 1;
+        Ok(())
+    }
+
+    /// Claim an invitation and join a group
+    pub fn claim_invitation(
+        &mut self,
+        invitation_index: usize,
+        encryption_key: &[u8; 32],
+    ) -> Result<GroupMembership, Box<dyn std::error::Error>> {
+        use crate::circuits::invitation_circuit::InvitationProver;
+
+        if invitation_index >= self.invitation_count as usize {
+            return Err("Invalid invitation index".into());
+        }
+
+        let invitation = &mut self.pending_invitations[invitation_index];
+        if invitation.is_claimed != 0 {
+            return Err("Invitation already claimed".into());
+        }
+
+        // Decrypt invitation code and nonce
+        let mut code_decrypted = [0u8; 32];
+        for i in 0..32 {
+            code_decrypted[i] = invitation.invitation_code[i] ^ encryption_key[i];
+        }
+        let invitation_code = Fr::from_le_bytes_mod_order(&code_decrypted);
+
+        let mut nonce_decrypted = [0u8; 32];
+        for i in 0..32 {
+            nonce_decrypted[i] = invitation.invitation_nonce[i] ^ encryption_key[(i + 16) % 32];
+        }
+        let invitation_nonce = Fr::from_le_bytes_mod_order(&nonce_decrypted);
+
+        // Convert stored values back to Fr
+        let invitation_hash = Fr::from_le_bytes_mod_order(&invitation.invitation_hash);
+        let inviter_pubkey = Fr::from_le_bytes_mod_order(&invitation.inviter_pubkey);
+        let group_id = Fr::from_le_bytes_mod_order(&invitation.group_id);
+        let expiry_time = Fr::from(invitation.expiry_time);
+
+        // Get XaeroID as Fr
+        let xaero_id_bytes = blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
+        let target_xaero_id = Fr::from_le_bytes_mod_order(xaero_id_bytes.as_bytes());
+
+        // Claim the invitation
+        let proof = InvitationProver::claim_invitation(
+            invitation_code,
+            invitation_nonce,
+            invitation_hash,
+            inviter_pubkey,
+            target_xaero_id,
+            group_id,
+            expiry_time,
+        )?;
+
+        // Create group membership from invitation
+        let mut membership = GroupMembership::zeroed();
+        membership.group_id = invitation.group_id;
+        membership.issuer_pubkey = invitation.inviter_pubkey;
+
+        // Use invitation hash as commitment (simplified)
+        membership.member_token_commitment = invitation.invitation_hash;
+
+        // Convert proof to ProofBytes
+        let mut proof_bytes = ProofBytes::zeroed();
+        let copy_len = proof.data.len().min(proof_bytes.data.len());
+        proof_bytes.data[..copy_len].copy_from_slice(&proof.data[..copy_len]);
+        proof_bytes.len = copy_len as u16;
+        proof_bytes.len = proof.len;
+        membership.membership_proof = proof_bytes;
+
+        membership.issued_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+        membership.expires_at = invitation.expiry_time;
+        membership.is_active = 1;
+
+        // Mark invitation as claimed
+        invitation.is_claimed = 1;
+
+        // Add to group memberships
+        self.add_group_membership(membership)?;
+
+        Ok(membership)
+    }
+
+    /// Get active group memberships
+    pub fn get_active_groups(&self) -> Vec<&GroupMembership> {
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
 
-        let mut write_index = 0;
-        for read_index in 0..self.wallet_proof_count as usize {
-            let entry = &self.wallet_proofs[read_index];
-            let proof_age = current_time.saturating_sub(entry.timestamp);
-            if proof_age <= max_age_seconds {
-                if write_index != read_index {
-                    self.wallet_proofs[write_index] = *entry;
-                }
-                write_index += 1;
-            }
-        }
-
-        // Clear remaining slots
-        for i in write_index..self.wallet_proof_count as usize {
-            self.wallet_proofs[i] = WalletProofEntry::zeroed();
-        }
-
-        self.wallet_proof_count = write_index as u16;
+        self.group_memberships[..self.group_count as usize]
+            .iter()
+            .filter(|m| m.is_active != 0 && m.expires_at > current_time)
+            .collect()
     }
-}
 
-/// High-level wallet operations using your circuits and existing traits
-impl XaeroWallet {
-    /// Prove membership in a group and store the proof with optional event emission
-    pub fn prove_and_store_membership_with_sink<T: WalletEventSink>(
-        &mut self,
-        group_id: Fr,
-        token_randomness: Fr,
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    /// Get roles for a specific group
+    pub fn get_roles_for_group(&self, group_id: [u8; 32]) -> Vec<&RoleAssignment> {
+        let current_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        self.role_assignments[..self.role_count as usize]
+            .iter()
+            .filter(|r| r.group_id == group_id && r.is_active != 0 && r.expires_at > current_time)
+            .collect()
+    }
+
+    /// Get highest role level for a group
+    pub fn get_highest_role_for_group(&self, group_id: [u8; 32]) -> Option<u8> {
+        self.get_roles_for_group(group_id)
+            .iter()
+            .map(|r| r.role_level)
+            .max()
+    }
+
+    /// Verify a group membership
+    pub fn verify_membership(&self, group_index: usize) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::circuits::membership_circuit::MembershipProver;
 
-        // In the simplified circuit: member_token = group_id
-        let member_token = group_id;
-        let token_commitment = member_token + token_randomness;
-
-        let proof_bytes = MembershipProver::prove_membership(
-            member_token,
-            token_randomness,
-            token_commitment,
-            group_id,
-        )?;
-
-        // Store group_id in context
-        let mut context = [0u8; 32];
-        let group_id_bytes = group_id.into_bigint().to_bytes_le();
-        context[..group_id_bytes.len().min(32)]
-            .copy_from_slice(&group_id_bytes[..group_id_bytes.len().min(32)]);
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::Membership, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::Membership,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
+        if group_index >= self.group_count as usize {
+            return Ok(false);
         }
 
-        Ok(())
-    }
+        let membership = &self.group_memberships[group_index];
 
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_membership(
-        &mut self,
-        group_id: Fr,
-        token_randomness: Fr,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_membership_with_sink(
-            group_id,
-            token_randomness,
-            None::<&BlackholeEventSink>,
+        // Convert bytes back to Fr
+        let xaero_id_bytes = blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
+        let xaero_id = Fr::from_le_bytes_mod_order(xaero_id_bytes.as_bytes());
+        let group_id = Fr::from_le_bytes_mod_order(&membership.group_id);
+        let token_commitment = Fr::from_le_bytes_mod_order(&membership.member_token_commitment);
+        let issuer_pubkey = Fr::from_le_bytes_mod_order(&membership.issuer_pubkey);
+
+        let proof_slice = &membership.membership_proof.data[..membership.membership_proof.len as usize];
+
+        MembershipProver::verify_membership(
+            &xaero_id,
+            &group_id,
+            &token_commitment,
+            &issuer_pubkey,
+            proof_slice,
         )
     }
 
-    /// Prove object creation rights and store the proof with optional event emission
-    pub fn prove_and_store_object_creation_with_sink<T: WalletEventSink>(
-        &mut self,
-        creator_role: u8,
-        min_creation_role: u8,
-        object_seed: Fr,
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::circuits::object_circuit::ObjectCreationProver;
-
-        // Calculate the object root according to circuit constraint
-        let new_object_root = object_seed + Fr::from(creator_role as u64);
-
-        let proof_bytes = ObjectCreationProver::prove_creation(
-            creator_role,
-            min_creation_role,
-            object_seed,
-            new_object_root,
-        )?;
-
-        // Store role info in context
-        let mut context = [0u8; 32];
-        context[0] = min_creation_role;
-        context[1] = creator_role;
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::ObjectCreation, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::ObjectCreation,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
-        }
-
-        Ok(())
-    }
-
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_object_creation(
-        &mut self,
-        creator_role: u8,
-        min_creation_role: u8,
-        object_seed: Fr,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_object_creation_with_sink(
-            creator_role,
-            min_creation_role,
-            object_seed,
-            None::<&BlackholeEventSink>,
-        )
-    }
-
-    /// Prove workspace creation rights and store the proof with optional event emission
-    pub fn prove_and_store_workspace_creation_with_sink<T: WalletEventSink>(
-        &mut self,
-        creator_role: u8,
-        min_creation_role: u8,
-        workspace_seed: Fr,
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::circuits::workspace_circuit::WorkspaceCreationProver;
-
-        // Calculate the workspace root according to circuit constraint
-        let new_workspace_root = workspace_seed * Fr::from(creator_role as u64);
-
-        let proof_bytes = WorkspaceCreationProver::prove_creation(
-            creator_role,
-            min_creation_role,
-            workspace_seed,
-            new_workspace_root,
-        )?;
-
-        // Store role info in context
-        let mut context = [0u8; 32];
-        context[0] = min_creation_role;
-        context[1] = creator_role;
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::WorkspaceCreation, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::WorkspaceCreation,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
-        }
-
-        Ok(())
-    }
-
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_workspace_creation(
-        &mut self,
-        creator_role: u8,
-        min_creation_role: u8,
-        workspace_seed: Fr,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_workspace_creation_with_sink(
-            creator_role,
-            min_creation_role,
-            workspace_seed,
-            None::<&BlackholeEventSink>,
-        )
-    }
-
-    /// Prove role authority using your existing XaeroProofs trait implementation with optional
-    /// event emission
-    pub fn prove_and_store_role_with_sink<T: WalletEventSink>(
-        &mut self,
-        my_role: u8,
-        min_role: u8,
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let proof_bytes = self.identity.prove_role(my_role, min_role);
-
-        // Store role info in context
-        let mut context = [0u8; 32];
-        context[0] = min_role;
-        context[1] = my_role;
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::Role, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::Role,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
-        }
-
-        Ok(())
-    }
-
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_role(
-        &mut self,
-        my_role: u8,
-        min_role: u8,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_role_with_sink(my_role, min_role, None::<&BlackholeEventSink>)
-    }
-
-    /// Prove membership using your existing XaeroProofs trait with optional event emission
-    pub fn prove_and_store_membership_hash_with_sink<T: WalletEventSink>(
-        &mut self,
-        allowed_hash: [u8; 32],
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let proof_bytes = self.identity.prove_membership(allowed_hash);
-
-        // Store hash in context
-        let context = allowed_hash;
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::Membership, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::Membership,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
-        }
-
-        Ok(())
-    }
-
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_membership_hash(
-        &mut self,
-        allowed_hash: [u8; 32],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_membership_hash_with_sink(allowed_hash, None::<&BlackholeEventSink>)
-    }
-
-    /// Sign a challenge using the identity's Falcon key with optional event emission
-    pub fn sign_challenge_with_sink<T: WalletEventSink>(
-        &self,
-        challenge: &[u8],
-        event_sink: Option<&T>,
-    ) -> Result<[u8; 690], Box<dyn std::error::Error>> {
-        let mgr = XaeroIdentityManager {};
-        let signature = mgr.sign_challenge(&self.identity, challenge);
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let event = IdentityEvent::ChallengeCompleted {
-                challenge_hash: *blake3::hash(challenge).as_bytes(),
-                signature: Box::new(signature), // Box the signature
-            };
-            sink.emit_identity_event(&self.get_did(), event)?;
-        }
-
-        Ok(signature)
-    }
-
-    /// Sign a challenge using the identity's Falcon key
-    pub fn sign_challenge(&self, challenge: &[u8]) -> [u8; 690] {
-        let mgr = XaeroIdentityManager {};
-        mgr.sign_challenge(&self.identity, challenge)
-    }
-
-    /// Verify a challenge signature
-    pub fn verify_challenge(&self, challenge: &[u8], signature: &[u8]) -> bool {
-        let mgr = XaeroIdentityManager {};
-        mgr.verify_challenge(&self.identity, challenge, signature)
-    }
-
-    /// Prove identity and store the proof with optional event emission
-    pub fn prove_and_store_identity_with_sink<T: WalletEventSink>(
-        &mut self,
-        challenge: &[u8],
-        event_sink: Option<&T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let proof_bytes = self.identity.prove_identity(challenge);
-
-        // Store challenge hash in context
-        let mut context = [0u8; 32];
-        let challenge_hash = blake3::hash(challenge);
-        context.copy_from_slice(&challenge_hash.as_bytes()[..32]);
-
-        // Store in wallet
-        self.add_extended_proof(WalletProofType::Identity, proof_bytes, context)?;
-
-        // Emit event if sink provided
-        if let Some(sink) = event_sink {
-            let proof_hash = blake3::hash(&proof_bytes.data[..proof_bytes.len as usize]);
-            let op = WalletCrdtOp::ProofAdded {
-                proof_type: WalletProofType::Identity,
-                proof_hash: *proof_hash.as_bytes(),
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)?
-                    .as_secs(),
-                context,
-            };
-            sink.emit_wallet_event(&self.get_did(), op)?;
-        }
-
-        Ok(())
-    }
-
-    /// Keep the original method for backward compatibility
-    pub fn prove_and_store_identity(
-        &mut self,
-        challenge: &[u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.prove_and_store_identity_with_sink(challenge, None::<&BlackholeEventSink>)
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    /// Export wallet to bytes for serialization
+    /// Export wallet to bytes
     pub fn to_bytes(&self) -> &[u8] {
         bytemuck::bytes_of(self)
     }
@@ -669,455 +579,146 @@ impl XaeroWallet {
     pub fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         bytemuck::try_from_bytes(bytes).ok()
     }
-
-    /// Get wallet statistics
-    pub fn get_stats(&self) -> WalletStats {
-        let mut stats = WalletStats::default();
-
-        for i in 0..self.wallet_proof_count as usize {
-            match self.wallet_proofs[i].get_proof_type() {
-                Some(WalletProofType::Identity) => stats.identity_proofs += 1,
-                Some(WalletProofType::Membership) => stats.membership_proofs += 1,
-                Some(WalletProofType::Role) => stats.role_proofs += 1,
-                Some(WalletProofType::ObjectCreation) => stats.object_creation_proofs += 1,
-                Some(WalletProofType::WorkspaceCreation) => stats.workspace_creation_proofs += 1,
-                Some(WalletProofType::Delegation) => stats.delegation_proofs += 1,
-                Some(WalletProofType::Invitation) => stats.invitation_proofs += 1,
-                Some(WalletProofType::Age) => stats.age_proofs += 1,
-                Some(WalletProofType::CredentialPossession) =>
-                    stats.credential_possession_proofs += 1,
-                None => {}
-            }
-        }
-
-        stats.total_proofs = self.wallet_proof_count;
-        stats.credential_proofs = self.identity.credential.proof_count as u16;
-        stats
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct WalletStats {
-    pub total_proofs: u16,
-    pub credential_proofs: u16,
-    pub identity_proofs: u16,
-    pub membership_proofs: u16,
-    pub role_proofs: u16,
-    pub object_creation_proofs: u16,
-    pub workspace_creation_proofs: u16,
-    pub delegation_proofs: u16,
-    pub invitation_proofs: u16,
-    pub age_proofs: u16,
-    pub credential_possession_proofs: u16,
 }
 
 #[cfg(test)]
 mod tests {
-    use ark_std::UniformRand;
-    use rand::rngs::OsRng;
-
     use super::*;
     use crate::{credentials::FalconCredentialIssuer, CredentialIssuer};
+    use crate::identity::XaeroIdentityManager;
 
     #[test]
-    fn test_wallet_with_existing_identity() {
-        // Create identity using your existing system
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-
-        let wallet = XaeroWallet::new(identity);
-
-        assert_eq!(wallet.wallet_proof_count, 0);
-        assert_eq!(wallet.version, 1);
-
-        // Check that we can access DID
-        let did = wallet.get_did();
-        assert!(did.starts_with("did:peer:"));
-
-        // Check that we can access credential
-        let cred_data = wallet.get_credential_data();
-        assert!(cred_data.len() <= crate::VC_MAX_LEN);
-    }
-
-    #[test]
-    fn test_wallet_with_credential_issuer() {
-        // Create issuer and issue a credential
-        let mgr = XaeroIdentityManager {};
-        let issuer_xid = mgr.new_id();
-        let issuer = FalconCredentialIssuer { issuer_xid };
-
-        // Create user identity
-        let mut user_identity = mgr.new_id();
-
-        // Issue credential
-        let credential =
-            issuer.issue_credential("did:peer:test", "alice@example.com".to_string(), 1990);
-
-        // Attach credential to identity
-        user_identity.credential = credential;
-
-        let wallet = XaeroWallet::new(user_identity);
-
-        // Check credential proofs
-        let cred_proofs = wallet.get_credential_proofs();
-        assert_eq!(cred_proofs.len(), 1);
-        assert!(cred_proofs[0].zk_proof.iter().any(|&b| b != 0));
-    }
-
-    #[test]
-    fn test_wallet_membership_workflow() {
+    fn test_wallet_as_issuer() {
         let mgr = XaeroIdentityManager {};
         let identity = mgr.new_id();
         let mut wallet = XaeroWallet::new(identity);
 
-        let mut rng = OsRng;
-        let group_id = Fr::from(42u64);
-        let token_randomness = Fr::rand(&mut rng);
+        // Initialize as issuer
+        let issuer_secret = Fr::from(999u64);
+        let encryption_key = [42u8; 32];
+        wallet.init_as_issuer(issuer_secret, &encryption_key);
 
-        // Prove and store membership using circuits
-        wallet
-            .prove_and_store_membership(group_id, token_randomness)
-            .expect("Membership proof should succeed");
+        assert_eq!(wallet.is_issuer, 1);
 
-        assert_eq!(wallet.wallet_proof_count, 1);
-
-        // Find the proof
-        let membership_proofs = wallet.find_wallet_proofs(WalletProofType::Membership);
-        assert_eq!(membership_proofs.len(), 1);
-        assert!(
-            membership_proofs[0].has_extended != 0,
-            "Should use extended proof"
-        );
+        // Verify we can retrieve the secret
+        let retrieved = wallet.get_issuer_secret(&encryption_key).unwrap();
+        assert_eq!(retrieved, issuer_secret);
     }
 
     #[test]
-    fn test_wallet_membership_with_sink() {
+    fn test_issue_genesis_groups() {
         let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
+        let issuer_identity = mgr.new_id();
+        let mut issuer_wallet = XaeroWallet::new(issuer_identity);
 
-        let mut rng = OsRng;
-        let group_id = Fr::from(42u64);
-        let token_randomness = Fr::rand(&mut rng);
+        // Setup issuer
+        let issuer_secret = Fr::from(999u64);
+        let encryption_key = [42u8; 32];
+        issuer_wallet.init_as_issuer(issuer_secret, &encryption_key);
 
-        // Test with blackhole sink
-        let sink = BlackholeEventSink;
-        wallet
-            .prove_and_store_membership_with_sink(group_id, token_randomness, Some(&sink))
-            .expect("Membership proof with sink should succeed");
+        // Issue groups to a target XaeroID
+        let target_xaero_id = Fr::from(12345u64);
+        let group_ids = vec![Fr::from(1u64), Fr::from(2u64), Fr::from(3u64)];
 
-        assert_eq!(wallet.wallet_proof_count, 1);
+        let memberships = issuer_wallet.issue_genesis_groups(
+            target_xaero_id,
+            group_ids,
+            &encryption_key,
+        ).expect("Failed to issue genesis groups");
 
-        // Find the proof
-        let membership_proofs = wallet.find_wallet_proofs(WalletProofType::Membership);
-        assert_eq!(membership_proofs.len(), 1);
-    }
+        assert_eq!(memberships.len(), 3);
 
-    #[test]
-    fn test_wallet_membership_hash_workflow() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
+        // Create target wallet and add memberships
+        let target_identity = mgr.new_id();
+        let mut target_wallet = XaeroWallet::new(target_identity);
 
-        // Create allowed hash from DID
-        let did_bytes = &wallet.identity.did_peer[..wallet.identity.did_peer_len as usize];
-        let allowed_hash_full = blake3::hash(did_bytes);
-        let mut allowed_hash = [0u8; 32];
-        allowed_hash.copy_from_slice(&allowed_hash_full.as_bytes()[..32]);
-
-        // Prove and store membership using hash
-        wallet
-            .prove_and_store_membership_hash(allowed_hash)
-            .expect("Membership hash proof should succeed");
-
-        assert_eq!(wallet.wallet_proof_count, 1);
-
-        // Find the proof
-        let membership_proofs = wallet.find_wallet_proofs(WalletProofType::Membership);
-        assert_eq!(membership_proofs.len(), 1);
-
-        // Verify the stored context matches
-        assert_eq!(membership_proofs[0].context, allowed_hash);
-    }
-
-    #[test]
-    fn test_wallet_role_workflow() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        // Prove and store role
-        wallet
-            .prove_and_store_role(5, 3)
-            .expect("Role proof should succeed");
-
-        assert_eq!(wallet.wallet_proof_count, 1);
-
-        // Find the proof
-        let role_proofs = wallet.find_wallet_proofs(WalletProofType::Role);
-        assert_eq!(role_proofs.len(), 1);
-
-        // Verify context
-        assert_eq!(role_proofs[0].context[0], 3); // min_role
-        assert_eq!(role_proofs[0].context[1], 5); // my_role
-    }
-
-    #[test]
-    fn test_wallet_role_with_sink() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        let sink = BlackholeEventSink;
-
-        // Prove and store role with sink
-        wallet
-            .prove_and_store_role_with_sink(5, 3, Some(&sink))
-            .expect("Role proof with sink should succeed");
-
-        assert_eq!(wallet.wallet_proof_count, 1);
-
-        // Find the proof
-        let role_proofs = wallet.find_wallet_proofs(WalletProofType::Role);
-        assert_eq!(role_proofs.len(), 1);
-
-        // Verify context
-        assert_eq!(role_proofs[0].context[0], 3); // min_role
-        assert_eq!(role_proofs[0].context[1], 5); // my_role
-    }
-
-    #[test]
-    fn test_wallet_identity_proof_workflow() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        let challenge = b"prove your identity";
-
-        // Prove and store identity
-        wallet
-            .prove_and_store_identity(challenge)
-            .expect("Identity proof should succeed");
-
-        assert_eq!(wallet.wallet_proof_count, 1);
-
-        // Find the proof
-        let identity_proofs = wallet.find_wallet_proofs(WalletProofType::Identity);
-        assert_eq!(identity_proofs.len(), 1);
-        assert!(
-            identity_proofs[0].has_extended != 0,
-            "Should use extended proof"
-        );
-
-        // Verify the proof contains signature data
-        let proof_data = identity_proofs[0].get_active_proof_data();
-        assert!(
-            !proof_data.is_empty(),
-            "Identity proof should contain signature data"
-        );
-    }
-
-    #[test]
-    fn test_wallet_challenge_signing() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let wallet = XaeroWallet::new(identity);
-
-        let challenge = b"prove your identity";
-        let signature = wallet.sign_challenge(challenge);
-
-        // Verify the signature
-        let is_valid = wallet.verify_challenge(challenge, &signature);
-        assert!(is_valid, "Signature should be valid");
-
-        // Test with wrong challenge
-        let wrong_challenge = b"wrong challenge";
-        let is_invalid = wallet.verify_challenge(wrong_challenge, &signature);
-        assert!(
-            !is_invalid,
-            "Signature should be invalid for wrong challenge"
-        );
-    }
-
-    #[test]
-    fn test_wallet_challenge_signing_with_sink() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let wallet = XaeroWallet::new(identity);
-
-        let challenge = b"prove your identity";
-        let sink = BlackholeEventSink;
-
-        let signature = wallet
-            .sign_challenge_with_sink(challenge, Some(&sink))
-            .expect("Challenge signing with sink should succeed");
-
-        // Verify the signature
-        let is_valid = wallet.verify_challenge(challenge, &signature);
-        assert!(is_valid, "Signature should be valid");
-    }
-
-    #[test]
-    fn test_wallet_serialization() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let wallet = XaeroWallet::new(identity);
-
-        let bytes = wallet.to_bytes();
-        let recovered = XaeroWallet::from_bytes(bytes).expect("failed_to_unravel");
-
-        assert_eq!(recovered.wallet_proof_count, wallet.wallet_proof_count);
-        assert_eq!(recovered.version, wallet.version);
-        assert_eq!(recovered.get_did(), wallet.get_did());
-    }
-
-    #[test]
-    fn test_wallet_stats() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        // Add some proofs manually for testing
-        let proof = XaeroProof { zk_proof: [1; 32] };
-        let context = [0u8; 32];
-
-        wallet
-            .add_proof(WalletProofType::Membership, proof, context)
-            .expect("failed_to_unravel");
-        wallet
-            .add_proof(WalletProofType::Role, proof, context)
-            .expect("failed_to_unravel");
-        wallet
-            .add_proof(WalletProofType::ObjectCreation, proof, context)
-            .expect("failed_to_unravel");
-
-        let stats = wallet.get_stats();
-        assert_eq!(stats.total_proofs, 3);
-        assert_eq!(stats.membership_proofs, 1);
-        assert_eq!(stats.role_proofs, 1);
-        assert_eq!(stats.object_creation_proofs, 1);
-    }
-
-    #[test]
-    fn test_wallet_cleanup_expired_proofs() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        // Add some proofs with a specific timestamp in the past
-        let proof = XaeroProof { zk_proof: [1; 32] };
-        let context = [0u8; 32];
-
-        // Create entries with timestamps manually to ensure they're old enough
-        let old_timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
-            .saturating_sub(10); // 10 seconds ago
-
-        let mut entry1 = WalletProofEntry::new(WalletProofType::Membership, proof, context);
-        entry1.timestamp = old_timestamp;
-        wallet.wallet_proofs[0] = entry1;
-        wallet.wallet_proof_count += 1;
-
-        let mut entry2 = WalletProofEntry::new(WalletProofType::Role, proof, context);
-        entry2.timestamp = old_timestamp;
-        wallet.wallet_proofs[1] = entry2;
-        wallet.wallet_proof_count += 1;
-
-        assert_eq!(wallet.wallet_proof_count, 2);
-
-        // Clean up proofs older than 5 seconds (should remove all since they're 10 seconds old)
-        wallet.cleanup_expired_proofs(5);
-        assert_eq!(wallet.wallet_proof_count, 0);
-    }
-
-    #[test]
-    fn test_wallet_proof_types() {
-        let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-
-        // Test each proof type
-        let proof = XaeroProof { zk_proof: [1; 32] };
-        let context = [0u8; 32];
-
-        let proof_types = [
-            WalletProofType::Identity,
-            WalletProofType::Membership,
-            WalletProofType::Role,
-            WalletProofType::ObjectCreation,
-            WalletProofType::WorkspaceCreation,
-            WalletProofType::Age,
-            WalletProofType::CredentialPossession,
-        ];
-
-        for proof_type in proof_types.iter() {
-            wallet
-                .add_proof(*proof_type, proof, context)
-                .expect("failed_to_unravel");
+        for membership in memberships {
+            target_wallet.add_group_membership(membership)
+                .expect("Failed to add membership");
         }
 
-        assert_eq!(wallet.wallet_proof_count, proof_types.len() as u16);
-
-        // Test finding each type
-        for proof_type in proof_types.iter() {
-            let found = wallet.find_wallet_proofs(*proof_type);
-            assert_eq!(
-                found.len(),
-                1,
-                "Should find exactly one proof of type {:?}",
-                proof_type
-            );
-        }
+        assert_eq!(target_wallet.group_count, 3);
     }
 
     #[test]
-    fn test_all_proof_methods_with_sink() {
+    fn test_role_assignment() {
         let mgr = XaeroIdentityManager {};
-        let identity = mgr.new_id();
-        let mut wallet = XaeroWallet::new(identity);
-        let sink = BlackholeEventSink;
+        let issuer_identity = mgr.new_id();
+        let mut issuer_wallet = XaeroWallet::new(issuer_identity);
 
-        let mut rng = OsRng;
+        // Setup issuer
+        let issuer_secret = Fr::from(999u64);
+        let encryption_key = [42u8; 32];
+        issuer_wallet.init_as_issuer(issuer_secret, &encryption_key);
+
+        // Issue role
+        let target_xaero_id = Fr::from(12345u64);
         let group_id = Fr::from(42u64);
-        let token_randomness = Fr::rand(&mut rng);
-        let object_seed = Fr::rand(&mut rng);
-        let workspace_seed = Fr::rand(&mut rng);
-        let _allowed_hash = [42u8; 32];
-        let challenge = b"test challenge";
+        let role_level = 5u8;
 
-        // Test all proof methods with sink
-        wallet
-            .prove_and_store_membership_with_sink(group_id, token_randomness, Some(&sink))
-            .expect("Membership with sink should work");
+        let assignment = issuer_wallet.issue_role(
+            target_xaero_id,
+            group_id,
+            role_level,
+            &encryption_key,
+        ).expect("Failed to issue role");
 
-        wallet
-            .prove_and_store_role_with_sink(5, 3, Some(&sink))
-            .expect("Role with sink should work");
+        assert_eq!(assignment.role_level, role_level);
 
-        wallet
-            .prove_and_store_object_creation_with_sink(5, 3, object_seed, Some(&sink))
-            .expect("Object creation with sink should work");
+        // Add to target wallet
+        let target_identity = mgr.new_id();
+        let mut target_wallet = XaeroWallet::new(target_identity);
+        target_wallet.add_role_assignment(assignment)
+            .expect("Failed to add role");
 
-        wallet
-            .prove_and_store_workspace_creation_with_sink(5, 3, workspace_seed, Some(&sink))
-            .expect("Workspace creation with sink should work");
+        assert_eq!(target_wallet.role_count, 1);
 
-        // Note: Skip membership hash test as it may depend on XaeroProofs trait implementation
-        // wallet
-        //     .prove_and_store_membership_hash_with_sink(allowed_hash, Some(&sink))
-        //     .expect("Membership hash with sink should work");
+        // Check highest role
+        let group_bytes = group_id.into_bigint().to_bytes_le();
+        let mut group_id_bytes = [0u8; 32];
+        group_id_bytes[..group_bytes.len().min(32)]
+            .copy_from_slice(&group_bytes[..group_bytes.len().min(32)]);
 
-        wallet
-            .prove_and_store_identity_with_sink(challenge, Some(&sink))
-            .expect("Identity with sink should work");
+        let highest = target_wallet.get_highest_role_for_group(group_id_bytes);
+        assert_eq!(highest, Some(role_level));
+    }
 
-        wallet
-            .sign_challenge_with_sink(challenge, Some(&sink))
-            .expect("Challenge signing with sink should work");
+    #[test]
+    fn test_invitation_flow() {
+        let mgr = XaeroIdentityManager {};
 
-        // Should have 5 proofs stored (excluding membership hash)
-        assert_eq!(wallet.wallet_proof_count, 5);
+        // Create issuer
+        let issuer_identity = mgr.new_id();
+        let mut issuer_wallet = XaeroWallet::new(issuer_identity);
+        let issuer_secret = Fr::from(999u64);
+        let encryption_key = [42u8; 32];
+        issuer_wallet.init_as_issuer(issuer_secret, &encryption_key);
+
+        // Create target
+        let target_identity = mgr.new_id();
+        let mut target_wallet = XaeroWallet::new(target_identity);
+
+        // Create invitation
+        let target_xaero_id = Fr::from(12345u64);
+        let group_id = Fr::from(42u64);
+
+        let invitation = issuer_wallet.create_invitation(
+            target_xaero_id,
+            group_id,
+            &encryption_key,
+        ).expect("Failed to create invitation");
+
+        // Add to target wallet
+        target_wallet.add_invitation(invitation)
+            .expect("Failed to add invitation");
+
+        assert_eq!(target_wallet.invitation_count, 1);
+
+        // Claim invitation
+        let membership = target_wallet.claim_invitation(0, &encryption_key)
+            .expect("Failed to claim invitation");
+
+        assert_eq!(target_wallet.group_count, 1);
+        assert_eq!(target_wallet.pending_invitations[0].is_claimed, 1);
     }
 }

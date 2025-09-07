@@ -41,6 +41,7 @@ dependencies = [
  "ark-crypto-primitives-macros",
  "ark-ec",
  "ark-ff",
+ "ark-r1cs-std",
  "ark-relations",
  "ark-serialize",
  "ark-snark",
@@ -52,6 +53,7 @@ dependencies = [
  "merlin",
  "rayon",
  "sha2",
+ "tracing",
 ]
 
 [[package]]
@@ -1167,6 +1169,7 @@ name = "xaeroid"
 version = "0.4.1"
 dependencies = [
  "ark-bn254",
+ "ark-crypto-primitives",
  "ark-ff",
  "ark-groth16",
  "ark-r1cs-std",

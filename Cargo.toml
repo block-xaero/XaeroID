@@ -67,3 +67,4 @@ ark-groth16 = "0.5.0"
 ark-bn254 = "0.5.0"
 ark-serialize = "0.5.0"
 ark-snark = "0.5.1"
+ark-crypto-primitives = { version = "0.5.0", features = ["crh", "r1cs"] }

@@ -92,6 +92,7 @@ impl XaeroProofs for XaeroID {
         // Original logic for other cases
         ProofBytes::zeroed()
     }
+
     fn verify_membership(_allowed_hash: [u8; 32], proof: &[u8]) -> bool {
         // with our stub above, membership proof is "empty Vec" and we just re-check:
         proof.is_empty()

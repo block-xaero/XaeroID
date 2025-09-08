@@ -1,3 +1,4 @@
+use ark_ff::BigInteger;
 use bytemuck::Zeroable;
 
 use crate::{IdentityManager, XaeroID};
@@ -36,6 +37,12 @@ pub trait XaeroProofs {
 
     /// Verify the role proof.
     fn verify_role(min_role: u8, proof: &[u8]) -> bool;
+
+    /// Self-sovereign: Issue group membership to self
+    fn self_issue_membership(&self, group_id: u64) -> ProofBytes;
+
+    /// Self-sovereign: Verify self-issued membership
+    fn verify_self_membership(xaero_id_hash: [u8; 32], group_id: u64, proof: &[u8]) -> bool;
 }
 
 /// Implement all of the above on `XaeroID` itself.
@@ -82,49 +89,168 @@ impl XaeroProofs for XaeroID {
     }
 
     fn prove_role(&self, role: u8, min_role: u8) -> ProofBytes {
-        // Use Arkworks Groth16 proof instead of simple comparison
-        crate::circuits::role_circuit::ArkRoleProver::prove_role_to_bytes(role, min_role)
+        // For credential-level roles (permanent professional attributes)
+        // Use simple range proof
+        if role >= min_role {
+            let mut proof = ProofBytes::zeroed();
+            proof.data[0] = role;
+            proof.data[1] = min_role;
+            proof.len = 2;
+            proof
+        } else {
+            ProofBytes::zeroed()
+        }
     }
 
     fn verify_role(min_role: u8, proof: &[u8]) -> bool {
-        if proof.is_empty() {
-            return true; // For backwards compatibility with stub
+        // Verify credential-level role proof
+        if proof.len() == 2 {
+            let role = proof[0];
+            let proof_min_role = proof[1];
+            // Verify this is a proof for the requested minimum
+            // and that the role meets the requirement
+            return proof_min_role == min_role && role >= min_role;
         }
 
-        // Convert to ProofBytes for verification
-        if proof.len() >= 2 {
-            let len = u16::from_le_bytes([proof[0], proof[1]]);
-            if proof.len() >= (len as usize + 4) {
-                let proof_bytes = ProofBytes {
-                    data: {
-                        let mut data = [0u8; MAX_PROOF_BYTES];
-                        let copy_len = (len as usize).min(MAX_PROOF_BYTES);
-                        if proof.len() >= copy_len + 4 {
-                            data[..copy_len].copy_from_slice(&proof[4..4 + copy_len]);
-                        }
-                        data
-                    },
-                    len,
-                    _pad: [0, 0],
-                };
-                return crate::circuits::role_circuit::ArkRoleProver::verify_role_from_bytes(
-                    min_role,
-                    &proof_bytes,
-                );
+        // No proof means no role
+        false
+    }
+
+    fn self_issue_membership(&self, group_id: u64) -> ProofBytes {
+        use ark_bn254::Fr;
+        use ark_ff::PrimeField;
+        use ark_std::UniformRand;
+        use rand::rngs::OsRng;
+
+        use crate::circuits::membership_circuit::MembershipProver;
+
+        // Derive self-sovereign issuer secret from XaeroID
+        let xaero_hash = blake3::hash(&self.secret_key);
+        let issuer_secret = Fr::from_le_bytes_mod_order(xaero_hash.as_bytes());
+
+        // Get XaeroID as Fr
+        let xaero_id_bytes = blake3::hash(&self.did_peer[..self.did_peer_len as usize]);
+        let xaero_id = Fr::from_le_bytes_mod_order(xaero_id_bytes.as_bytes());
+
+        // Group ID as Fr
+        let group_fr = Fr::from(group_id);
+
+        // Generate randomness
+        let mut rng = OsRng;
+        let token_randomness = Fr::rand(&mut rng);
+
+        // Issue membership to self
+        match MembershipProver::issue_membership(
+            xaero_id,
+            group_fr,
+            issuer_secret,
+            token_randomness,
+        ) {
+            Ok((token_commitment, proof)) => {
+                // Encode commitment and proof together
+                let mut result = ProofBytes::zeroed();
+
+                // First 32 bytes: token commitment
+                let commitment_bytes = token_commitment.into_bigint().to_bytes_le();
+                let commitment_len = commitment_bytes.len().min(32);
+                result.data[..commitment_len].copy_from_slice(&commitment_bytes[..commitment_len]);
+
+                // Next 32 bytes: issuer pubkey (for verification)
+                let issuer_pubkey = MembershipProver::derive_issuer_pubkey(issuer_secret);
+                let pubkey_bytes = issuer_pubkey.into_bigint().to_bytes_le();
+                let pubkey_len = pubkey_bytes.len().min(32);
+                result.data[32..32 + pubkey_len].copy_from_slice(&pubkey_bytes[..pubkey_len]);
+
+                // Remaining bytes: the actual proof
+                let proof_len = proof.len.min((MAX_PROOF_BYTES - 64) as u16) as usize;
+                result.data[64..64 + proof_len].copy_from_slice(&proof.data[..proof_len]);
+
+                result.len = (64 + proof_len) as u16;
+                result
+            }
+            Err(_) => ProofBytes::zeroed(),
+        }
+    }
+
+    fn verify_self_membership(xaero_id_hash: [u8; 32], group_id: u64, proof: &[u8]) -> bool {
+        use ark_bn254::Fr;
+        use ark_ff::PrimeField;
+
+        use crate::circuits::membership_circuit::MembershipProver;
+
+        if proof.len() < 64 {
+            return false; // Need at least commitment + pubkey
+        }
+
+        // Extract commitment (first 32 bytes)
+        let token_commitment = Fr::from_le_bytes_mod_order(&proof[..32]);
+
+        // Extract issuer pubkey (next 32 bytes)
+        let issuer_pubkey = Fr::from_le_bytes_mod_order(&proof[32..64]);
+
+        // Extract proof bytes
+        let proof_bytes = &proof[64..];
+
+        // Convert inputs to Fr
+        let xaero_id = Fr::from_le_bytes_mod_order(&xaero_id_hash);
+        let group_fr = Fr::from(group_id);
+
+        // Verify the membership proof
+        MembershipProver::verify_membership(
+            &xaero_id,
+            &group_fr,
+            &token_commitment,
+            &issuer_pubkey,
+            proof_bytes,
+        )
+        .unwrap_or(false)
+    }
+}
+
+// Helper function to create self-sovereign wallet data
+impl XaeroID {
+    pub fn create_self_sovereign_wallet(&self, groups: &[u64]) -> Vec<u8> {
+        use crate::domain::xaero_wallet::{GroupMembership, XaeroWallet};
+
+        let mut wallet = XaeroWallet::new(*self);
+
+        // Self-issue membership to each group
+        for &group_id in groups {
+            let proof = self.self_issue_membership(group_id);
+
+            if proof.len > 0 {
+                let mut membership = GroupMembership::zeroed();
+
+                // Store group ID
+                let group_bytes = group_id.to_le_bytes();
+                membership.group_id[..8].copy_from_slice(&group_bytes);
+
+                // Store commitment (from proof data)
+                membership.member_token_commitment[..32].copy_from_slice(&proof.data[..32]);
+
+                // Store issuer pubkey (from proof data)
+                membership.issuer_pubkey[..32].copy_from_slice(&proof.data[32..64]);
+
+                // Store the actual proof
+                let proof_len = (proof.len as usize).saturating_sub(64);
+                membership.membership_proof.data[..proof_len]
+                    .copy_from_slice(&proof.data[64..64 + proof_len]);
+                membership.membership_proof.len = proof_len as u16;
+
+                // Set metadata
+                membership.issued_at = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                membership.expires_at = membership.issued_at + (365 * 24 * 60 * 60); // 1 year
+                membership.is_active = 1;
+
+                // Add to wallet
+                let _ = wallet.add_group_membership(membership);
             }
         }
 
-        // Fallback: try to parse as raw proof bytes
-        let proof_bytes = ProofBytes {
-            data: {
-                let mut data = [0u8; MAX_PROOF_BYTES];
-                let copy_len = proof.len().min(MAX_PROOF_BYTES);
-                data[..copy_len].copy_from_slice(&proof[..copy_len]);
-                data
-            },
-            len: proof.len() as u16,
-            _pad: [0, 0],
-        };
-        crate::circuits::role_circuit::ArkRoleProver::verify_role_from_bytes(min_role, &proof_bytes)
+        // Return serialized wallet
+        bytemuck::bytes_of(&wallet).to_vec()
     }
 }

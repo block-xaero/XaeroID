@@ -7,6 +7,107 @@ use crate::{
     compressed::XaeroPublicData, identity::XaeroIdentityManager, IdentityManager, XaeroID,
 };
 
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_create_self_sovereign_wallet(
+    xid: *const u8,
+    group_ids: *const u64,
+    group_count: u32,
+    out_wallet: *mut u8,
+    wallet_capacity: usize,
+    actual_size: *mut usize,
+) -> bool {
+    if xid.is_null() || group_ids.is_null() || out_wallet.is_null() || actual_size.is_null() {
+        return false;
+    }
+
+    unsafe {
+        // Read XaeroID
+        let xid_size = xaero_get_id_size() as usize;
+        let xid_slice = std::slice::from_raw_parts(xid, xid_size);
+
+        // Read group IDs
+        let groups = std::slice::from_raw_parts(group_ids, group_count as usize);
+
+        // Create self-sovereign wallet
+        match create_self_sovereign_wallet_internal(xid_slice, groups) {
+            Ok(wallet_data) => {
+                if wallet_data.len() > wallet_capacity {
+                    return false;
+                }
+
+                std::ptr::copy_nonoverlapping(
+                    wallet_data.as_ptr(),
+                    out_wallet,
+                    wallet_data.len()
+                );
+
+                *actual_size = wallet_data.len();
+                true
+            }
+            Err(_) => false
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_verify_self_membership(
+    xaero_id_hash: *const u8,
+    group_id: u64,
+    proof: *const u8,
+    proof_len: usize,
+) -> bool {
+    if xaero_id_hash.is_null() || proof.is_null() {
+        return false;
+    }
+
+    unsafe {
+        let hash = std::slice::from_raw_parts(xaero_id_hash, 32);
+        let proof_bytes = std::slice::from_raw_parts(proof, proof_len);
+
+        // For MVP, just return true for self-sovereign proofs
+        // In production, verify the actual ZK proof
+        true
+    }
+}
+
+// Internal implementation
+#[unsafe(no_mangle)]
+fn create_self_sovereign_wallet_internal(
+    xid_bytes: &[u8],
+    group_ids: &[u64],
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    use crate::zk_proofs::XaeroProofs;
+
+    // Parse XaeroID
+    let xid = bytemuck::from_bytes::<XaeroID>(xid_bytes);
+
+    // Create self-sovereign proofs for each group
+    let mut wallet_data = Vec::new();
+
+    // Add XaeroID to wallet
+    wallet_data.extend_from_slice(xid_bytes);
+
+    // Add group count
+    wallet_data.extend_from_slice(&(group_ids.len() as u32).to_le_bytes());
+
+    // For each group, create self-sovereign membership
+    for &group_id in group_ids {
+        // Convert u64 to [u8; 32]
+        let mut group_id_bytes = [0u8; 32];
+        group_id_bytes[..8].copy_from_slice(&group_id.to_le_bytes());
+
+        // Add group ID
+        wallet_data.extend_from_slice(&group_id.to_le_bytes());
+
+        // Create self-signed proof
+        let proof = xid.prove_membership(group_id_bytes);
+        wallet_data.extend_from_slice(&proof.len.to_le_bytes());
+        wallet_data.extend_from_slice(&proof.data[..proof.len as usize]);
+    }
+
+    Ok(wallet_data)
+}
+
 // Generate new XaeroID
 #[unsafe(no_mangle)]
 pub extern "C" fn xaero_generate_id(out_xid: *mut XaeroID) -> bool {

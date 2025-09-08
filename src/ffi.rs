@@ -67,7 +67,6 @@ pub extern "C" fn xaero_verify_self_membership(
 }
 
 // Internal implementation
-#[unsafe(no_mangle)]
 fn create_self_sovereign_wallet_internal(
     xid_bytes: &[u8],
     group_ids: &[u64],

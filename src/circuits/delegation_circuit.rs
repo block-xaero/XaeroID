@@ -10,16 +10,16 @@ use crate::zk_proofs::ProofBytes;
 /// Circuit for delegating roles/permissions without revealing delegator identity
 pub struct DelegationCircuit {
     // Private inputs
-    delegator_role: Option<u8>,       // Delegator's current role level
-    delegator_token: Option<Fr>,      // Delegator's membership token
-    delegation_nonce: Option<Fr>,     // Random nonce for this delegation
+    delegator_role: Option<u8>,   // Delegator's current role level
+    delegator_token: Option<Fr>,  // Delegator's membership token
+    delegation_nonce: Option<Fr>, // Random nonce for this delegation
 
     // Public inputs
-    pub target_xaero_id: Option<Fr>,  // Who receives the delegation
-    pub target_role: Option<u8>,      // Role being granted
+    pub target_xaero_id: Option<Fr>, // Who receives the delegation
+    pub target_role: Option<u8>,     // Role being granted
     pub min_delegation_role: Option<u8>, // Minimum role needed to delegate
     pub delegation_commitment: Option<Fr>, // Commitment to this delegation
-    pub group_id: Option<Fr>,         // Group context for delegation
+    pub group_id: Option<Fr>,        // Group context for delegation
 }
 
 #[allow(clippy::needless_range_loop)]
@@ -33,16 +33,19 @@ impl ConstraintSynthesizer<Fr> for DelegationCircuit {
         })?;
 
         let delegator_token = FpVar::new_witness(cs.clone(), || {
-            self.delegator_token.ok_or(SynthesisError::AssignmentMissing)
+            self.delegator_token
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let delegation_nonce = FpVar::new_witness(cs.clone(), || {
-            self.delegation_nonce.ok_or(SynthesisError::AssignmentMissing)
+            self.delegation_nonce
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         // Allocate public inputs
         let target_xaero_id = FpVar::new_input(cs.clone(), || {
-            self.target_xaero_id.ok_or(SynthesisError::AssignmentMissing)
+            self.target_xaero_id
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let target_role = FpVar::new_input(cs.clone(), || {
@@ -58,7 +61,8 @@ impl ConstraintSynthesizer<Fr> for DelegationCircuit {
         })?;
 
         let delegation_commitment = FpVar::new_input(cs.clone(), || {
-            self.delegation_commitment.ok_or(SynthesisError::AssignmentMissing)
+            self.delegation_commitment
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let group_id = FpVar::new_input(cs.clone(), || {
@@ -83,10 +87,10 @@ impl ConstraintSynthesizer<Fr> for DelegationCircuit {
 
         // Constraint 3: Verify delegation commitment
         // commitment = H(delegator_token || target_xaero_id || target_role || nonce || group_id)
-        // Simplified: commitment = delegator_token + target_xaero_id * target_role + nonce * group_id
-        let computed_commitment = &delegator_token +
-            &target_xaero_id * &target_role +
-            &delegation_nonce * &group_id;
+        // Simplified: commitment = delegator_token + target_xaero_id * target_role + nonce *
+        // group_id
+        let computed_commitment =
+            &delegator_token + &target_xaero_id * &target_role + &delegation_nonce * &group_id;
         computed_commitment.enforce_equal(&delegation_commitment)?;
 
         Ok(())
@@ -99,7 +103,7 @@ impl DelegationProver {
     /// Create a delegation proof
     pub fn create_delegation(
         delegator_role: u8,
-        delegator_token: Fr,  // From their membership proof
+        delegator_token: Fr, // From their membership proof
         target_xaero_id: Fr,
         target_role: u8,
         min_delegation_role: u8,
@@ -112,9 +116,9 @@ impl DelegationProver {
         let delegation_nonce = Fr::rand(&mut rng);
 
         // Compute delegation commitment
-        let delegation_commitment = delegator_token +
-            target_xaero_id * Fr::from(target_role as u64) +
-            delegation_nonce * group_id;
+        let delegation_commitment = delegator_token
+            + target_xaero_id * Fr::from(target_role as u64)
+            + delegation_nonce * group_id;
 
         let circuit = DelegationCircuit {
             delegator_role: Some(delegator_role),
@@ -220,7 +224,7 @@ impl DelegationProver {
 #[derive(Clone)]
 pub struct DelegationChain {
     pub delegations: Vec<DelegationRecord>,
-    pub max_depth: u8,  // Prevent infinite delegation chains
+    pub max_depth: u8, // Prevent infinite delegation chains
 }
 
 #[derive(Clone)]
@@ -260,7 +264,11 @@ impl DelegationChain {
     pub fn verify_chain(&self, group_id: Fr) -> Result<bool, Box<dyn std::error::Error>> {
         // Verify each delegation in the chain
         for (i, record) in self.delegations.iter().enumerate() {
-            let min_role = if i == 0 { 1 } else { self.delegations[i-1].role };
+            let min_role = if i == 0 {
+                1
+            } else {
+                self.delegations[i - 1].role
+            };
 
             let proof_slice = &record.proof.data[..record.proof.len as usize];
             let is_valid = DelegationProver::verify_delegation(
@@ -283,20 +291,21 @@ impl DelegationChain {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use ark_std::UniformRand;
     use rand::rngs::OsRng;
+
+    use super::*;
 
     #[test]
     fn test_delegation_proof() {
         let mut rng = OsRng;
 
         // Setup
-        let delegator_role = 5u8;  // Admin level
-        let delegator_token = Fr::rand(&mut rng);  // From membership proof
+        let delegator_role = 5u8; // Admin level
+        let delegator_token = Fr::rand(&mut rng); // From membership proof
         let target_xaero_id = Fr::from(12345u64);
-        let target_role = 3u8;  // Moderator level
-        let min_delegation_role = 4u8;  // Need at least level 4 to delegate
+        let target_role = 3u8; // Moderator level
+        let min_delegation_role = 4u8; // Need at least level 4 to delegate
         let group_id = Fr::from(42u64);
 
         // Create delegation
@@ -307,7 +316,8 @@ mod tests {
             target_role,
             min_delegation_role,
             group_id,
-        ).expect("Failed to create delegation");
+        )
+        .expect("Failed to create delegation");
 
         // Verify delegation
         let proof_slice = &proof.data[..proof.len as usize];
@@ -318,7 +328,8 @@ mod tests {
             &commitment,
             &group_id,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(is_valid, "Delegation proof should be valid");
 
@@ -331,7 +342,8 @@ mod tests {
             &commitment,
             &group_id,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(!invalid, "Proof should not verify for different target");
     }
@@ -348,7 +360,7 @@ mod tests {
             target_xaero_id: Fr::from(100u64),
             role: 4,
             delegation_commitment: Fr::rand(&mut rng),
-            proof: ProofBytes::zeroed(),  // Would be real proof
+            proof: ProofBytes::zeroed(), // Would be real proof
             timestamp: 1000,
             group_id,
         };
@@ -369,7 +381,7 @@ mod tests {
         // Try to delegate higher role (should fail)
         let bad_record = DelegationRecord {
             target_xaero_id: Fr::from(300u64),
-            role: 5,  // Higher than previous!
+            role: 5, // Higher than previous!
             delegation_commitment: Fr::rand(&mut rng),
             proof: ProofBytes::zeroed(),
             timestamp: 3000,

@@ -35,16 +35,12 @@ pub extern "C" fn xaero_create_self_sovereign_wallet(
                     return false;
                 }
 
-                std::ptr::copy_nonoverlapping(
-                    wallet_data.as_ptr(),
-                    out_wallet,
-                    wallet_data.len()
-                );
+                std::ptr::copy_nonoverlapping(wallet_data.as_ptr(), out_wallet, wallet_data.len());
 
                 *actual_size = wallet_data.len();
                 true
             }
-            Err(_) => false
+            Err(_) => false,
         }
     }
 }

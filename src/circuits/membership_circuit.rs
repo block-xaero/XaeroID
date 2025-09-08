@@ -1,8 +1,8 @@
 use ark_bn254::{Bn254, Fr};
+use ark_crypto_primitives::crh::sha256::constraints::{Sha256Gadget, UnitVar};
 use ark_groth16::Proof;
 use ark_r1cs_std::{fields::fp::FpVar, prelude::*};
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
-use ark_crypto_primitives::crh::sha256::constraints::{Sha256Gadget,UnitVar};
 use bytemuck::Zeroable;
 use rand::SeedableRng;
 
@@ -10,15 +10,15 @@ use crate::zk_proofs::ProofBytes;
 
 pub struct MembershipCircuit {
     // Private inputs
-    member_token: Option<Fr>,        // hash(xaero_id || group_id || issuer_secret)
-    token_randomness: Option<Fr>,    // Random blinding factor
-    issuer_secret: Option<Fr>,       // Issuer's secret key
+    member_token: Option<Fr>, // hash(xaero_id || group_id || issuer_secret)
+    token_randomness: Option<Fr>, // Random blinding factor
+    issuer_secret: Option<Fr>, // Issuer's secret key
 
     // Public inputs
-    pub xaero_id: Option<Fr>,        // The XaeroID being bound
-    pub group_id: Option<Fr>,        // The group being joined
+    pub xaero_id: Option<Fr>,         // The XaeroID being bound
+    pub group_id: Option<Fr>,         // The group being joined
     pub token_commitment: Option<Fr>, // member_token + randomness
-    pub issuer_pubkey: Option<Fr>,   // Issuer's public key (derived from secret)
+    pub issuer_pubkey: Option<Fr>,    // Issuer's public key (derived from secret)
 }
 
 impl ConstraintSynthesizer<Fr> for MembershipCircuit {
@@ -29,7 +29,8 @@ impl ConstraintSynthesizer<Fr> for MembershipCircuit {
         })?;
 
         let randomness = FpVar::new_witness(cs.clone(), || {
-            self.token_randomness.ok_or(SynthesisError::AssignmentMissing)
+            self.token_randomness
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let issuer_secret = FpVar::new_witness(cs.clone(), || {
@@ -46,7 +47,8 @@ impl ConstraintSynthesizer<Fr> for MembershipCircuit {
         })?;
 
         let token_commitment = FpVar::new_input(cs.clone(), || {
-            self.token_commitment.ok_or(SynthesisError::AssignmentMissing)
+            self.token_commitment
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let issuer_pubkey = FpVar::new_input(cs.clone(), || {
@@ -76,11 +78,7 @@ pub struct MembershipProver;
 
 impl MembershipProver {
     /// Generate member token for a specific XaeroID and group
-    pub fn generate_member_token(
-        xaero_id: Fr,
-        group_id: Fr,
-        issuer_secret: Fr,
-    ) -> Fr {
+    pub fn generate_member_token(xaero_id: Fr, group_id: Fr, issuer_secret: Fr) -> Fr {
         xaero_id + group_id * issuer_secret
     }
 
@@ -195,6 +193,7 @@ impl MembershipProver {
 mod tests {
     use ark_std::UniformRand;
     use rand::rngs::OsRng;
+
     use super::*;
 
     #[test]
@@ -207,16 +206,13 @@ mod tests {
 
         // User and group
         let xaero_id = Fr::from(12345u64); // User's XaeroID
-        let group_id = Fr::from(42u64);    // Group to join
+        let group_id = Fr::from(42u64); // Group to join
 
         // Issue membership
         let token_randomness = Fr::rand(&mut rng);
-        let (token_commitment, proof) = MembershipProver::issue_membership(
-            xaero_id,
-            group_id,
-            issuer_secret,
-            token_randomness,
-        ).expect("Issuance failed");
+        let (token_commitment, proof) =
+            MembershipProver::issue_membership(xaero_id, group_id, issuer_secret, token_randomness)
+                .expect("Issuance failed");
 
         // Verify proof
         let proof_slice = &proof.data[..proof.len as usize];
@@ -226,7 +222,8 @@ mod tests {
             &token_commitment,
             &issuer_pubkey,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(is_valid, "Membership proof should be valid");
 
@@ -238,7 +235,8 @@ mod tests {
             &token_commitment,
             &issuer_pubkey,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(!invalid, "Proof should not verify for different XaeroID");
     }

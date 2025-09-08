@@ -10,31 +10,34 @@ use crate::zk_proofs::ProofBytes;
 /// Circuit for joining your FIRST group via invitation (bootstrap mechanism)
 pub struct InvitationCircuit {
     // Private inputs
-    invitation_code: Option<Fr>,      // Secret invite code
-    invitation_nonce: Option<Fr>,     // Random nonce in invitation
+    invitation_code: Option<Fr>,  // Secret invite code
+    invitation_nonce: Option<Fr>, // Random nonce in invitation
 
     // Public inputs
-    pub invitation_hash: Option<Fr>,   // Hash of (invitation_code || nonce)
-    pub inviter_pubkey: Option<Fr>,    // Who issued the invitation
-    pub target_xaero_id: Option<Fr>,   // XaeroID being invited
-    pub group_id: Option<Fr>,          // Group being joined
-    pub expiry_time: Option<Fr>,       // When invitation expires
+    pub invitation_hash: Option<Fr>, // Hash of (invitation_code || nonce)
+    pub inviter_pubkey: Option<Fr>,  // Who issued the invitation
+    pub target_xaero_id: Option<Fr>, // XaeroID being invited
+    pub group_id: Option<Fr>,        // Group being joined
+    pub expiry_time: Option<Fr>,     // When invitation expires
 }
 
 impl ConstraintSynthesizer<Fr> for InvitationCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
         // Allocate private inputs
         let invitation_code = FpVar::new_witness(cs.clone(), || {
-            self.invitation_code.ok_or(SynthesisError::AssignmentMissing)
+            self.invitation_code
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let invitation_nonce = FpVar::new_witness(cs.clone(), || {
-            self.invitation_nonce.ok_or(SynthesisError::AssignmentMissing)
+            self.invitation_nonce
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         // Allocate public inputs
         let invitation_hash = FpVar::new_input(cs.clone(), || {
-            self.invitation_hash.ok_or(SynthesisError::AssignmentMissing)
+            self.invitation_hash
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let inviter_pubkey = FpVar::new_input(cs.clone(), || {
@@ -42,7 +45,8 @@ impl ConstraintSynthesizer<Fr> for InvitationCircuit {
         })?;
 
         let target_xaero_id = FpVar::new_input(cs.clone(), || {
-            self.target_xaero_id.ok_or(SynthesisError::AssignmentMissing)
+            self.target_xaero_id
+                .ok_or(SynthesisError::AssignmentMissing)
         })?;
 
         let group_id = FpVar::new_input(cs.clone(), || {
@@ -56,9 +60,8 @@ impl ConstraintSynthesizer<Fr> for InvitationCircuit {
         // Constraint 1: Verify invitation hash
         // hash = H(invitation_code || nonce || target_xaero_id || group_id || expiry)
         // Simplified: hash = invitation_code + nonce * target_xaero_id + group_id * expiry
-        let computed_hash = &invitation_code +
-            &invitation_nonce * &target_xaero_id +
-            &group_id * &expiry_time;
+        let computed_hash =
+            &invitation_code + &invitation_nonce * &target_xaero_id + &group_id * &expiry_time;
         computed_hash.enforce_equal(&invitation_hash)?;
 
         // Constraint 2: Verify invitation is bound to inviter
@@ -94,9 +97,8 @@ impl InvitationProver {
         let invitation_code = inviter_pubkey * group_id + Fr::from(1337u64); // Add constant
 
         // Compute invitation hash
-        let invitation_hash = invitation_code +
-            invitation_nonce * target_xaero_id +
-            group_id * expiry_time;
+        let invitation_hash =
+            invitation_code + invitation_nonce * target_xaero_id + group_id * expiry_time;
 
         Ok((invitation_code, invitation_nonce, invitation_hash))
     }
@@ -228,7 +230,8 @@ mod tests {
                 target_xaero_id,
                 group_id,
                 expiry_time,
-            ).expect("Failed to create invitation");
+            )
+            .expect("Failed to create invitation");
 
         // User claims invitation
         let proof = InvitationProver::claim_invitation(
@@ -239,7 +242,8 @@ mod tests {
             target_xaero_id,
             group_id,
             expiry_time,
-        ).expect("Failed to claim invitation");
+        )
+        .expect("Failed to claim invitation");
 
         // Verify claim
         let proof_slice = &proof.data[..proof.len as usize];
@@ -250,7 +254,8 @@ mod tests {
             &group_id,
             &expiry_time,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(is_valid, "Invitation proof should be valid");
 
@@ -263,7 +268,8 @@ mod tests {
             &group_id,
             &expiry_time,
             proof_slice,
-        ).expect("Verification failed");
+        )
+        .expect("Verification failed");
 
         assert!(!invalid, "Proof should not verify for different XaeroID");
     }

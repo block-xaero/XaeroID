@@ -33,9 +33,9 @@ pub enum WalletProofType {
 #[derive(Copy, Clone)]
 pub struct GroupMembership {
     pub group_id: [u8; 32],
-    pub member_token_commitment: [u8; 32],  // Fr serialized
-    pub issuer_pubkey: [u8; 32],            // Fr serialized
-    pub membership_proof: ProofBytes,        // The ZK proof
+    pub member_token_commitment: [u8; 32], // Fr serialized
+    pub issuer_pubkey: [u8; 32],           // Fr serialized
+    pub membership_proof: ProofBytes,      // The ZK proof
     pub issued_at: u64,
     pub expires_at: u64,
     pub is_active: u8,
@@ -51,9 +51,9 @@ unsafe impl Zeroable for GroupMembership {}
 pub struct RoleAssignment {
     pub group_id: [u8; 32],
     pub role_level: u8,
-    pub role_commitment: [u8; 32],  // Fr serialized
-    pub issuer_pubkey: [u8; 32],    // Fr serialized
-    pub role_proof: ProofBytes,     // The ZK proof
+    pub role_commitment: [u8; 32], // Fr serialized
+    pub issuer_pubkey: [u8; 32],   // Fr serialized
+    pub role_proof: ProofBytes,    // The ZK proof
     pub issued_at: u64,
     pub expires_at: u64,
     pub is_active: u8,
@@ -223,11 +223,13 @@ impl XaeroWallet {
         group_ids: Vec<Fr>,
         encryption_key: &[u8; 32],
     ) -> Result<Vec<GroupMembership>, Box<dyn std::error::Error>> {
-        use crate::circuits::membership_circuit::MembershipProver;
         use ark_std::UniformRand;
         use rand::rngs::OsRng;
 
-        let issuer_secret = self.get_issuer_secret(encryption_key)
+        use crate::circuits::membership_circuit::MembershipProver;
+
+        let issuer_secret = self
+            .get_issuer_secret(encryption_key)
             .ok_or("Not authorized as issuer")?;
 
         let issuer_pubkey = MembershipProver::derive_issuer_pubkey(issuer_secret);
@@ -272,7 +274,10 @@ impl XaeroWallet {
     }
 
     /// Add a group membership to the wallet
-    pub fn add_group_membership(&mut self, membership: GroupMembership) -> Result<(), &'static str> {
+    pub fn add_group_membership(
+        &mut self,
+        membership: GroupMembership,
+    ) -> Result<(), &'static str> {
         if self.group_count >= MAX_GROUP_MEMBERSHIPS as u8 {
             return Err("Maximum groups reached");
         }
@@ -290,19 +295,17 @@ impl XaeroWallet {
         role_level: u8,
         encryption_key: &[u8; 32],
     ) -> Result<RoleAssignment, Box<dyn std::error::Error>> {
-        use crate::circuits::role_circuit::RoleProver;
         use ark_std::UniformRand;
         use rand::rngs::OsRng;
 
-        let issuer_secret = self.get_issuer_secret(encryption_key)
+        use crate::circuits::role_circuit::RoleProver;
+
+        let issuer_secret = self
+            .get_issuer_secret(encryption_key)
             .ok_or("Not authorized as issuer")?;
 
-        let (role_token, role_randomness, role_commitment) = RoleProver::issue_role(
-            target_xaero_id,
-            group_id,
-            role_level,
-            issuer_secret,
-        )?;
+        let (role_token, role_randomness, role_commitment) =
+            RoleProver::issue_role(target_xaero_id, group_id, role_level, issuer_secret)?;
 
         let issuer_pubkey = issuer_secret * issuer_secret; // Simplified
 
@@ -365,13 +368,15 @@ impl XaeroWallet {
     ) -> Result<PendingInvitation, Box<dyn std::error::Error>> {
         use crate::circuits::invitation_circuit::InvitationProver;
 
-        let issuer_secret = self.get_issuer_secret(encryption_key)
+        let issuer_secret = self
+            .get_issuer_secret(encryption_key)
             .ok_or("Not authorized as issuer")?;
 
         let expiry_time = Fr::from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?
-                .as_secs() + (7 * 24 * 60 * 60) // 7 days
+                .as_secs()
+                + (7 * 24 * 60 * 60), // 7 days
         );
 
         let (invitation_code, invitation_nonce, invitation_hash) =
@@ -463,7 +468,8 @@ impl XaeroWallet {
         let expiry_time = Fr::from(invitation.expiry_time);
 
         // Get XaeroID as Fr
-        let xaero_id_bytes = blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
+        let xaero_id_bytes =
+            blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
         let target_xaero_id = Fr::from_le_bytes_mod_order(xaero_id_bytes.as_bytes());
 
         // Claim the invitation
@@ -543,7 +549,10 @@ impl XaeroWallet {
     }
 
     /// Verify a group membership
-    pub fn verify_membership(&self, group_index: usize) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn verify_membership(
+        &self,
+        group_index: usize,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::circuits::membership_circuit::MembershipProver;
 
         if group_index >= self.group_count as usize {
@@ -553,13 +562,15 @@ impl XaeroWallet {
         let membership = &self.group_memberships[group_index];
 
         // Convert bytes back to Fr
-        let xaero_id_bytes = blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
+        let xaero_id_bytes =
+            blake3::hash(&self.identity.did_peer[..self.identity.did_peer_len as usize]);
         let xaero_id = Fr::from_le_bytes_mod_order(xaero_id_bytes.as_bytes());
         let group_id = Fr::from_le_bytes_mod_order(&membership.group_id);
         let token_commitment = Fr::from_le_bytes_mod_order(&membership.member_token_commitment);
         let issuer_pubkey = Fr::from_le_bytes_mod_order(&membership.issuer_pubkey);
 
-        let proof_slice = &membership.membership_proof.data[..membership.membership_proof.len as usize];
+        let proof_slice =
+            &membership.membership_proof.data[..membership.membership_proof.len as usize];
 
         MembershipProver::verify_membership(
             &xaero_id,
@@ -584,8 +595,9 @@ impl XaeroWallet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{credentials::FalconCredentialIssuer, CredentialIssuer};
-    use crate::identity::XaeroIdentityManager;
+    use crate::{
+        credentials::FalconCredentialIssuer, identity::XaeroIdentityManager, CredentialIssuer,
+    };
 
     #[test]
     fn test_wallet_as_issuer() {
@@ -620,11 +632,9 @@ mod tests {
         let target_xaero_id = Fr::from(12345u64);
         let group_ids = vec![Fr::from(1u64), Fr::from(2u64), Fr::from(3u64)];
 
-        let memberships = issuer_wallet.issue_genesis_groups(
-            target_xaero_id,
-            group_ids,
-            &encryption_key,
-        ).expect("Failed to issue genesis groups");
+        let memberships = issuer_wallet
+            .issue_genesis_groups(target_xaero_id, group_ids, &encryption_key)
+            .expect("Failed to issue genesis groups");
 
         assert_eq!(memberships.len(), 3);
 
@@ -633,7 +643,8 @@ mod tests {
         let mut target_wallet = XaeroWallet::new(target_identity);
 
         for membership in memberships {
-            target_wallet.add_group_membership(membership)
+            target_wallet
+                .add_group_membership(membership)
                 .expect("Failed to add membership");
         }
 
@@ -656,19 +667,17 @@ mod tests {
         let group_id = Fr::from(42u64);
         let role_level = 5u8;
 
-        let assignment = issuer_wallet.issue_role(
-            target_xaero_id,
-            group_id,
-            role_level,
-            &encryption_key,
-        ).expect("Failed to issue role");
+        let assignment = issuer_wallet
+            .issue_role(target_xaero_id, group_id, role_level, &encryption_key)
+            .expect("Failed to issue role");
 
         assert_eq!(assignment.role_level, role_level);
 
         // Add to target wallet
         let target_identity = mgr.new_id();
         let mut target_wallet = XaeroWallet::new(target_identity);
-        target_wallet.add_role_assignment(assignment)
+        target_wallet
+            .add_role_assignment(assignment)
             .expect("Failed to add role");
 
         assert_eq!(target_wallet.role_count, 1);
@@ -702,20 +711,20 @@ mod tests {
         let target_xaero_id = Fr::from(12345u64);
         let group_id = Fr::from(42u64);
 
-        let invitation = issuer_wallet.create_invitation(
-            target_xaero_id,
-            group_id,
-            &encryption_key,
-        ).expect("Failed to create invitation");
+        let invitation = issuer_wallet
+            .create_invitation(target_xaero_id, group_id, &encryption_key)
+            .expect("Failed to create invitation");
 
         // Add to target wallet
-        target_wallet.add_invitation(invitation)
+        target_wallet
+            .add_invitation(invitation)
             .expect("Failed to add invitation");
 
         assert_eq!(target_wallet.invitation_count, 1);
 
         // Claim invitation
-        let membership = target_wallet.claim_invitation(0, &encryption_key)
+        let membership = target_wallet
+            .claim_invitation(0, &encryption_key)
             .expect("Failed to claim invitation");
 
         assert_eq!(target_wallet.group_count, 1);

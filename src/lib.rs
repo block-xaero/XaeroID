@@ -3,7 +3,11 @@
 //! - Ed25519 keypair (Iroh compatible)
 //! - did:peer format
 //! - Hash-based group commitments
-//! - That's it.
+
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![allow(clippy::disallowed_methods)]
+
+use std::ffi::{c_char, CStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,91 +16,39 @@ use serde::{Deserialize, Serialize};
 // ============================================================
 
 /// XaeroID - your identity
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct XaeroID {
     /// did:peer:z{base58(blake3(pubkey))}
     pub did: String,
-
     /// Ed25519 public key
     pub pubkey: [u8; 32],
-
     /// Ed25519 secret key
-    #[serde(skip_serializing)]
     pub secret_key: [u8; 32],
-
     /// Groups with commitments
     pub memberships: Vec<GroupMembership>,
-
     /// When created
     pub created_at: u64,
 }
 
 /// Group membership with hash commitment
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct GroupMembership {
     /// Group name: "engineering", "workspace/abc123", etc.
     pub group_id: String,
-
     /// commitment = blake3(did || group_id || nonce)
     pub commitment: [u8; 32],
-
     /// Nonce (private - derived from secret_key)
-    #[serde(skip_serializing)]
     pub nonce: [u8; 32],
 }
 
-/// What goes in the QR code
-#[derive(Clone, Serialize, Deserialize)]
+/// What goes in the QR code - uses hex strings for easy JSON
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PassPayload {
     pub did: String,
-    #[serde(with = "hex_array_32")]
-    pub pubkey: [u8; 32],
+    pub pubkey: String, // hex encoded
     pub groups: Vec<String>,
     pub issued_at: u64,
-    #[serde(with = "hex_array_64")]
-    pub signature: [u8; 64],
-}
-
-// Hex serialization for [u8; 32]
-mod hex_array_32 {
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(bytes: &[u8; 32], s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        s.serialize_str(&hex::encode(bytes))
-    }
-
-    pub fn deserialize<'de, D>(d: D) -> Result<[u8; 32], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(d)?;
-        let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        bytes.try_into().map_err(|_| serde::de::Error::custom("wrong length"))
-    }
-}
-
-// Hex serialization for [u8; 64]
-mod hex_array_64 {
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(bytes: &[u8; 64], s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        s.serialize_str(&hex::encode(bytes))
-    }
-
-    pub fn deserialize<'de, D>(d: D) -> Result<[u8; 64], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(d)?;
-        let bytes = hex::decode(&s).map_err(serde::de::Error::custom)?;
-        bytes.try_into().map_err(|_| serde::de::Error::custom("wrong length"))
-    }
+    pub signature: String, // hex encoded
 }
 
 // ============================================================
@@ -135,6 +87,11 @@ impl XaeroID {
 
     /// Add membership to a group
     pub fn join_group(&mut self, group_id: &str) {
+        // Check if already member
+        if self.memberships.iter().any(|m| m.group_id == group_id) {
+            return;
+        }
+
         let nonce = self.derive_nonce(group_id);
         let commitment = self.compute_commitment(group_id, &nonce);
 
@@ -157,7 +114,11 @@ impl XaeroID {
 
     /// Create payload for QR code
     pub fn to_pass_payload(&self) -> PassPayload {
-        let groups: Vec<String> = self.memberships.iter().map(|m| m.group_id.clone()).collect();
+        let groups: Vec<String> = self
+            .memberships
+            .iter()
+            .map(|m| m.group_id.clone())
+            .collect();
 
         // Sign the payload content
         let sign_data = format!("{}:{}:{}", self.did, groups.join(","), self.created_at);
@@ -165,10 +126,10 @@ impl XaeroID {
 
         PassPayload {
             did: self.did.clone(),
-            pubkey: self.pubkey,
+            pubkey: hex::encode(self.pubkey),
             groups,
             issued_at: self.created_at,
-            signature,
+            signature: hex::encode(signature),
         }
     }
 
@@ -206,7 +167,7 @@ impl XaeroID {
     fn random_bytes() -> [u8; 32] {
         use rand::RngCore;
         let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
+        rand::rng().fill_bytes(&mut bytes);
         bytes
     }
 
@@ -242,21 +203,38 @@ impl XaeroID {
 impl PassPayload {
     /// Verify the payload signature
     pub fn verify(&self) -> bool {
+        let Ok(pubkey_bytes) = hex::decode(&self.pubkey) else {
+            return false;
+        };
+        let Ok(sig_bytes) = hex::decode(&self.signature) else {
+            return false;
+        };
+
+        if pubkey_bytes.len() != 32 || sig_bytes.len() != 64 {
+            return false;
+        }
+
+        let pubkey: [u8; 32] = pubkey_bytes.try_into().unwrap();
+        let signature: [u8; 64] = sig_bytes.try_into().unwrap();
+
         let sign_data = format!("{}:{}:{}", self.did, self.groups.join(","), self.issued_at);
-        XaeroID::verify(sign_data.as_bytes(), &self.signature, &self.pubkey)
+        XaeroID::verify(sign_data.as_bytes(), &signature, &pubkey)
     }
 
     /// Parse from JSON bytes
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         serde_json::from_slice(bytes).ok()
     }
+
+    /// To JSON bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).unwrap_or_default()
+    }
 }
 
 // ============================================================
 // FFI for Swift
 // ============================================================
-
-use std::ffi::{c_char, CStr};
 
 /// Generate new XaeroID - returns pointer
 #[unsafe(no_mangle)]
@@ -277,11 +255,7 @@ pub extern "C" fn xaero_free(xid: *mut XaeroID) {
 
 /// Get DID string
 #[unsafe(no_mangle)]
-pub extern "C" fn xaero_get_did(
-    xid: *const XaeroID,
-    out: *mut c_char,
-    out_len: usize,
-) -> bool {
+pub extern "C" fn xaero_get_did(xid: *const XaeroID, out: *mut c_char, out_len: usize) -> bool {
     if xid.is_null() || out.is_null() || out_len == 0 {
         return false;
     }
@@ -354,10 +328,28 @@ pub extern "C" fn xaero_verify(
     XaeroID::verify(message, &signature, &pk)
 }
 
-/// Add group and create pass payload JSON
+/// Join a group (mutates XaeroID)
+#[unsafe(no_mangle)]
+pub extern "C" fn xaero_join_group(xid: *mut XaeroID, group_id: *const c_char) -> bool {
+    if xid.is_null() || group_id.is_null() {
+        return false;
+    }
+
+    let group = match unsafe { CStr::from_ptr(group_id) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    unsafe {
+        (*xid).join_group(group);
+    }
+    true
+}
+
+/// Create pass payload JSON (adds groups first, then creates payload)
 #[unsafe(no_mangle)]
 pub extern "C" fn xaero_create_pass_payload(
-    xid: *const XaeroID,
+    xid: *mut XaeroID,
     groups: *const *const c_char,
     groups_count: usize,
     out: *mut u8,
@@ -368,23 +360,21 @@ pub extern "C" fn xaero_create_pass_payload(
         return false;
     }
 
-    let xid_ref = unsafe { &*xid };
+    let xid_ref = unsafe { &mut *xid };
 
-    // Clone and add groups
-    let mut xid_clone = xid_ref.clone();
-
+    // Add groups
     if !groups.is_null() && groups_count > 0 {
         for i in 0..groups_count {
             let g = unsafe { *groups.add(i) };
-            if !g.is_null() {
-                if let Ok(s) = unsafe { CStr::from_ptr(g) }.to_str() {
-                    xid_clone.join_group(s);
-                }
+            if !g.is_null()
+                && let Ok(s) = unsafe { CStr::from_ptr(g) }.to_str()
+            {
+                xid_ref.join_group(s);
             }
         }
     }
 
-    let bytes = xid_clone.to_pass_bytes();
+    let bytes = xid_ref.to_pass_bytes();
 
     if bytes.len() > out_capacity {
         return false;
@@ -411,24 +401,6 @@ pub extern "C" fn xaero_verify_pass_payload(json: *const u8, json_len: usize) ->
         Some(p) => p.verify(),
         None => false,
     }
-}
-
-/// Join a group (mutates XaeroID)
-#[unsafe(no_mangle)]
-pub extern "C" fn xaero_join_group(xid: *mut XaeroID, group_id: *const c_char) -> bool {
-    if xid.is_null() || group_id.is_null() {
-        return false;
-    }
-
-    let group = match unsafe { CStr::from_ptr(group_id) }.to_str() {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    unsafe {
-        (*xid).join_group(group);
-    }
-    true
 }
 
 // ============================================================
@@ -484,5 +456,10 @@ mod tests {
 
         assert!(parsed.verify());
         assert_eq!(parsed.did, xid.did);
+
+        // Check JSON is readable
+        let json_str = String::from_utf8_lossy(&bytes);
+        println!("JSON: {}", json_str);
+        assert!(json_str.contains("did:peer:z"));
     }
 }

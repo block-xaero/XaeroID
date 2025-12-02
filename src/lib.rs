@@ -259,14 +259,14 @@ impl PassPayload {
 use std::ffi::{c_char, CStr};
 
 /// Generate new XaeroID - returns pointer
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_generate() -> *mut XaeroID {
     let xid = Box::new(XaeroID::generate());
     Box::into_raw(xid)
 }
 
 /// Free XaeroID
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_free(xid: *mut XaeroID) {
     if !xid.is_null() {
         unsafe {
@@ -276,7 +276,7 @@ pub extern "C" fn xaero_free(xid: *mut XaeroID) {
 }
 
 /// Get DID string
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_get_did(
     xid: *const XaeroID,
     out: *mut c_char,
@@ -301,7 +301,7 @@ pub extern "C" fn xaero_get_did(
 }
 
 /// Get public key (32 bytes)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_get_pubkey(xid: *const XaeroID, out: *mut u8) -> bool {
     if xid.is_null() || out.is_null() {
         return false;
@@ -314,7 +314,7 @@ pub extern "C" fn xaero_get_pubkey(xid: *const XaeroID, out: *mut u8) -> bool {
 }
 
 /// Sign a message
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_sign(
     xid: *const XaeroID,
     msg: *const u8,
@@ -336,7 +336,7 @@ pub extern "C" fn xaero_sign(
 }
 
 /// Verify a signature
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_verify(
     pubkey: *const u8,
     msg: *const u8,
@@ -355,7 +355,7 @@ pub extern "C" fn xaero_verify(
 }
 
 /// Add group and create pass payload JSON
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_create_pass_payload(
     xid: *const XaeroID,
     groups: *const *const c_char,
@@ -399,7 +399,7 @@ pub extern "C" fn xaero_create_pass_payload(
 }
 
 /// Verify pass payload JSON
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_verify_pass_payload(json: *const u8, json_len: usize) -> bool {
     if json.is_null() || json_len == 0 {
         return false;
@@ -414,7 +414,7 @@ pub extern "C" fn xaero_verify_pass_payload(json: *const u8, json_len: usize) ->
 }
 
 /// Join a group (mutates XaeroID)
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn xaero_join_group(xid: *mut XaeroID, group_id: *const c_char) -> bool {
     if xid.is_null() || group_id.is_null() {
         return false;

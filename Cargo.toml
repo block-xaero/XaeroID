@@ -1,9 +1,9 @@
 [package]
 name = "xaeroid"
-version = "0.1.0"
-edition = "2021"
+version = "1.0.1"
+edition = "2024"
 description = "Simple decentralized identity with Ed25519 and hash commitments"
-license = "MIT"
+license = "MPL-2"
 
 [lib]
 crate-type = ["staticlib", "cdylib", "rlib"]

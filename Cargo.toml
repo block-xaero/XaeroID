@@ -1,70 +1,27 @@
 [package]
 name = "xaeroid"
-version = "0.4.1"
-edition = "2024"
-authors = ["anirudh.vyas@goldilocksfashion.com", "ricky.nj@gmail.com"]
-description = "A cloudless, decentralized DID key generator and identity verification system using Rust."
-license = "MPL-2.0"
-repository = "https://github.com/block-xaero/xaeroid"
-readme = "README.md"
-keywords = ["DID", "identity", "decentralized", "zero-knowledge", "privacy"]
-categories = ["cryptography", "authentication"]
+version = "0.1.0"
+edition = "2021"
+description = "Simple decentralized identity with Ed25519 and hash commitments"
+license = "MIT"
 
 [lib]
-name = "xaeroid"
-crate-type = ["rlib","cdylib", "staticlib"]
-
-# iOS targets
-[target.aarch64-apple-ios]
-rustflags = ["-C", "link-arg=-Wl,-application_extension"]
-
-[target.x86_64-apple-ios]
-rustflags = ["-C", "link-arg=-Wl,-application_extension"]
-
-[target.aarch64-apple-ios-sim]
-rustflags = ["-C", "link-arg=-Wl,-application_extension"]
-
-# Android targets (requires NDK)
-[target.aarch64-linux-android]
-linker = "aarch64-linux-android21-clang"
-
-[target.armv7-linux-androideabi]
-linker = "armv7a-linux-androideabi21-clang"
-
-[target.i686-linux-android]
-linker = "i686-linux-android21-clang"
-
-[target.x86_64-linux-android]
-linker = "x86_64-linux-android21-clang"
-
-# Linux targets
-[target.x86_64-unknown-linux-gnu]
-linker = "x86_64-linux-gnu-gcc"
-
-[target.aarch64-unknown-linux-gnu]
-linker = "aarch64-linux-gnu-gcc"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
-lz4_flex = "0.11.5"
-getrandom = "0.2.16"
-pqcrypto-traits = "0.3.4"
-pqcrypto-falcon = "0.4"
-rkyv = { version = "0.8.10",default-features = true, features = ["std", "bytecheck"] }
-bytecheck = "0.8.1"
-bytemuck = "1.23.0"
-rand = "0.8.5"
-rand_chacha = "0.3"
-blake3 = "1.8.2"
-multibase = "0.9.1"
-thiserror = "2.0.12"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+blake3 = "1.5"
+bs58 = "0.5"
+getrandom = "0.3.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4.3"
+rand = "0.10.0-rc.5"
 
-# Arkworks for Groth16 zk-SNARKs (stable Rust)
-ark-std = "0.5.0"
-ark-ff = "0.5.0"
-ark-relations = "0.5.1"
-ark-r1cs-std = "0.5.0"
-ark-groth16 = "0.5.0"
-ark-bn254 = "0.5.0"
-ark-serialize = "0.5.0"
-ark-snark = "0.5.1"
-ark-crypto-primitives = { version = "0.5.0", features = ["crh", "r1cs"] }
+[dev-dependencies]
+# None needed
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

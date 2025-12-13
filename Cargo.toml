@@ -12,11 +12,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 blake3 = "1.5"
 bs58 = "0.5"
-getrandom = "0.3.4"
+getrandom = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hex = "0.4.3"
-rand = "0.10.0-rc.5"
+rand = "0.8"
 
 [dev-dependencies]
 # None needed

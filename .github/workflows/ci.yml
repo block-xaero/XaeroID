@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**', 'ci/**']
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly. Staggered across the Cyan repos to avoid simultaneous runs.
+    - cron: '22 7 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # ed25519 / hash-commitment tests historically needed a larger stack.
+  RUST_MIN_STACK: '16777216'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No rust-toolchain.toml in this repo -> stable.
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        # Non-blocking: pre-existing formatting must not gate the build/test/clippy signal.
+        continue-on-error: true
+        run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build --all-targets
+
+      # Default features only. No real-infra deps; pure offline crypto.
+      - name: Test
+        run: cargo test
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings

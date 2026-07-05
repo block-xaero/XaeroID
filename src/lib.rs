@@ -8,6 +8,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![allow(clippy::disallowed_methods)]
 
+pub mod anonymous;
 use serde::{Deserialize, Serialize};
 use std::ffi::{c_char, CStr, CString};
 
@@ -94,6 +95,9 @@ pub struct GroupInvite {
     /// Display name of inviter
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inviter_name: Option<String>,
+    /// Node ID of inviter (iroh PublicKey hex) - used to bootstrap gossip connection
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inviter_node_id: Option<String>,
     /// When the invite was created
     pub issued_at: u64,
     /// Signature over the invite data
@@ -109,6 +113,7 @@ impl GroupInvite {
         group_color: Option<&str>,
         inviter_secret_key: &[u8; 32],
         inviter_name: Option<&str>,
+        inviter_node_id: Option<&str>,
     ) -> Self {
         let inviter_pubkey = XaeroID::ed25519_pubkey(inviter_secret_key);
         let inviter_did = XaeroID::create_did(&inviter_pubkey);
@@ -133,6 +138,7 @@ impl GroupInvite {
             group_color: group_color.map(|s| s.to_string()),
             inviter_did,
             inviter_name: inviter_name.map(|s| s.to_string()),
+            inviter_node_id: inviter_node_id.map(|s| s.to_string()),
             issued_at,
             sig: hex::encode(signature),
         }
@@ -216,7 +222,7 @@ impl XaeroID {
             pubkey,
             secret_key,
             memberships: Vec::new(),
-            created_at: Self::now(),
+            created_at: Self::now_secs(),
             display_name: None,
             avatar_url: None,
         }
@@ -240,7 +246,7 @@ impl XaeroID {
             pubkey,
             secret_key,
             memberships: Vec::new(),
-            created_at: Self::now(),
+            created_at: Self::now_secs(),
             display_name: None,
             avatar_url: None,
         }
@@ -374,7 +380,7 @@ impl XaeroID {
         bytes
     }
 
-    fn now() -> u64 {
+    pub fn now_secs() -> u64 {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -733,6 +739,7 @@ pub extern "C" fn xaero_create_group_invite(
     group_icon: *const c_char,    // nullable
     group_color: *const c_char,   // nullable
     inviter_name: *const c_char,  // nullable
+    inviter_node_id: *const c_char, // nullable - iroh node ID for gossip bootstrap
 ) -> *mut c_char {
     // Validate required params
     if secret_key_hex.is_null() || group_id.is_null() || group_name.is_null() {
@@ -781,7 +788,13 @@ pub extern "C" fn xaero_create_group_invite(
         unsafe { CStr::from_ptr(inviter_name) }.to_str().ok()
     };
 
-    let invite = GroupInvite::new(gid, gname, icon, color, &secret_bytes, iname);
+    let node_id = if inviter_node_id.is_null() {
+        None
+    } else {
+        unsafe { CStr::from_ptr(inviter_node_id) }.to_str().ok()
+    };
+
+    let invite = GroupInvite::new(gid, gname, icon, color, &secret_bytes, iname, node_id);
 
     match CString::new(invite.to_json()) {
         Ok(s) => s.into_raw(),
@@ -791,7 +804,7 @@ pub extern "C" fn xaero_create_group_invite(
 
 /// Parse and validate a group invite from JSON
 /// Returns JSON with parsed invite data and validity, or null on parse error
-/// Result: {"valid": true/false, "group_id": "...", "group_name": "...", ...}
+/// Result: {"valid": true/false, "group_id": "...", "group_name": "...", "inviter_node_id": "...", ...}
 #[unsafe(no_mangle)]
 pub extern "C" fn xaero_parse_group_invite(invite_json: *const c_char) -> *mut c_char {
     if invite_json.is_null() {
@@ -810,6 +823,7 @@ pub extern "C" fn xaero_parse_group_invite(invite_json: *const c_char) -> *mut c
 
     let is_valid = invite.verify();
 
+    // Return both inviter_did and inviter_node_id (alias) for Swift compatibility
     let result = serde_json::json!({
         "valid": is_valid,
         "group_id": invite.group_id,
@@ -817,6 +831,7 @@ pub extern "C" fn xaero_parse_group_invite(invite_json: *const c_char) -> *mut c
         "group_icon": invite.group_icon,
         "group_color": invite.group_color,
         "inviter_did": invite.inviter_did,
+        "inviter_node_id": invite.inviter_did,  // Alias for Swift compatibility
         "inviter_name": invite.inviter_name,
         "issued_at": invite.issued_at
     });

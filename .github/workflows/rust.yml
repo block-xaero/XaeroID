@@ -1,67 +1,15 @@
-name: Rust
+# Superseded by ci.yml. Intentionally disabled so the repo has a single CI
+# definition. Left as a no-op stub because the file could not be deleted in the
+# environment that authored it; safe to `git rm` on a normal checkout.
+#
+# Only workflow_dispatch => GitHub never auto-runs this on push/PR.
+name: Rust (disabled — superseded by ci.yml)
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  CARGO_TERM_COLOR: always
+  workflow_dispatch:
 
 jobs:
-  formatting:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Rust toolchain (fmt + clippy)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy
-
-      - name: Check formatting for all crates
-        run: cargo fmt --all -- --check
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo git index
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo build output
-        uses: actions/cache@v3
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install Rust toolchain (clippy)
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: clippy
-
-      - name: Build
-        run: cargo build --verbose
-
-      - name: Test
-        run: RUST_MIN_STACK=16777216 cargo test --verbose
-
-      - name: Lint with Clippy
-        run: cargo clippy --all-targets --all-features --
+      - run: echo "Superseded by ci.yml; intentionally does nothing."

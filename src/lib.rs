@@ -350,7 +350,11 @@ impl XaeroID {
             short_id: self.short_id(),
             display_name: self.display_name.clone(),
             avatar_url: self.avatar_url.clone(),
-            groups: self.memberships.iter().map(|m| m.group_id.clone()).collect(),
+            groups: self
+                .memberships
+                .iter()
+                .map(|m| m.group_id.clone())
+                .collect(),
         }
     }
 
@@ -736,9 +740,9 @@ pub extern "C" fn xaero_create_group_invite(
     secret_key_hex: *const c_char,
     group_id: *const c_char,
     group_name: *const c_char,
-    group_icon: *const c_char,    // nullable
-    group_color: *const c_char,   // nullable
-    inviter_name: *const c_char,  // nullable
+    group_icon: *const c_char,      // nullable
+    group_color: *const c_char,     // nullable
+    inviter_name: *const c_char,    // nullable
     inviter_node_id: *const c_char, // nullable - iroh node ID for gossip bootstrap
 ) -> *mut c_char {
     // Validate required params
@@ -887,7 +891,11 @@ pub extern "C" fn xaero_derive_identity(secret_key_hex: *const c_char) -> *mut c
 
     let pubkey = XaeroID::ed25519_pubkey(&secret_bytes);
     let did = XaeroID::create_did(&pubkey);
-    let short_id: String = bs58::encode(&pubkey).into_string().chars().take(8).collect();
+    let short_id: String = bs58::encode(&pubkey)
+        .into_string()
+        .chars()
+        .take(8)
+        .collect();
 
     let json = serde_json::json!({
         "pubkey": hex::encode(pubkey),
@@ -1001,6 +1009,6 @@ mod tests {
         assert_eq!(result.display_name, Some("Bob".to_string()));
         assert_eq!(result.groups.len(), 2);
 
-        unsafe { xaero_free_string(result_ptr) };
+        xaero_free_string(result_ptr);
     }
 }

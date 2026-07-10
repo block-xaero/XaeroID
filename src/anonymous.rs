@@ -30,10 +30,9 @@ use crate::XaeroID;
 // ============================================================
 
 const ANIMALS: &[&str] = &[
-    "Otter", "Falcon", "Panda", "Fox", "Owl", "Lynx", "Crane", "Ibis",
-    "Wolf", "Bear", "Hawk", "Deer", "Hare", "Seal", "Wren", "Dove",
-    "Mink", "Crow", "Pike", "Swan", "Moth", "Finch", "Newt", "Toad",
-    "Lark", "Viper", "Raven", "Egret", "Stoat", "Quail", "Heron", "Gecko",
+    "Otter", "Falcon", "Panda", "Fox", "Owl", "Lynx", "Crane", "Ibis", "Wolf", "Bear", "Hawk",
+    "Deer", "Hare", "Seal", "Wren", "Dove", "Mink", "Crow", "Pike", "Swan", "Moth", "Finch",
+    "Newt", "Toad", "Lark", "Viper", "Raven", "Egret", "Stoat", "Quail", "Heron", "Gecko",
 ];
 
 /// Derive a deterministic animal handle from a public key
@@ -240,14 +239,14 @@ pub fn verify_join_signature(payload: &AnonymousJoinPayload) -> bool {
 ///
 /// DEMO VERSION: iterates over members and tries to match commitment.
 /// This is NOT zero-knowledge — a verifier learns which member matched.
-/// 
+///
 /// PRODUCTION: replace with ZK-SNARK proof of Merkle tree membership.
 /// The prover would generate a proof that their pubkey is a leaf in
 /// the Merkle tree of group members, without revealing which leaf.
 pub fn verify_membership_demo(
     commitment: &[u8; 32],
-    scope_id: &str,
-    group_member_pubkeys: &[[u8; 32]],
+    _scope_id: &str,
+    _group_member_pubkeys: &[[u8; 32]],
 ) -> MembershipVerification {
     // In demo mode, we can't verify without knowing the nonce.
     // The nonce is derived from the member's secret key, which we don't have.
@@ -259,7 +258,7 @@ pub fn verify_membership_demo(
     //   - Prover generates: proof = ZK_PROVE(secret_key, merkle_tree, scope_id)
     //   - Verifier checks:  ZK_VERIFY(proof, merkle_root, scope_id) → bool
     //   - Verifier learns NOTHING about which member
-    
+
     MembershipVerification {
         is_valid: true, // Trusted in demo — ZK replaces this
         matched_member: None,
@@ -420,7 +419,11 @@ pub extern "C" fn xaero_verify_anonymous_join(join_payload_json: *const c_char) 
         Err(_) => return 0,
     };
 
-    if verify_join_signature(&payload) { 1 } else { 0 }
+    if verify_join_signature(&payload) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Verify an identity reveal payload.
@@ -441,7 +444,11 @@ pub extern "C" fn xaero_verify_reveal(reveal_payload_json: *const c_char) -> i32
         Err(_) => return 0,
     };
 
-    if verify_reveal(&payload) { 1 } else { 0 }
+    if verify_reveal(&payload) {
+        1
+    } else {
+        0
+    }
 }
 
 // ============================================================
